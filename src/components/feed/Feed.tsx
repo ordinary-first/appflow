@@ -7,6 +7,7 @@ import { AppCard } from "./AppCard";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { Dialog } from "@/components/ui/dialog";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { UserMenu } from "@/components/UserMenu";
 import { useSession } from "@/lib/auth-client";
 import { track } from "@/lib/track";
 import type { FeedItem } from "@/lib/types";
@@ -178,13 +179,16 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
             <Plus className="h-4 w-4" /> Submit
           </Link>
           {session?.user && (
-            <Link
-              href="/dashboard"
-              aria-label="Dashboard"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-black/50 backdrop-blur transition hover:bg-muted"
-            >
-              <LayoutDashboard className="h-4 w-4" />
-            </Link>
+            <>
+              <Link
+                href="/dashboard"
+                aria-label="Dashboard"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-black/50 backdrop-blur transition hover:bg-muted"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+              </Link>
+              <UserMenu variant="overlay" />
+            </>
           )}
         </nav>
       </header>

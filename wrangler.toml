@@ -14,7 +14,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "glim-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "beb01748-803c-4236-a343-e2b8a92e266f"
 migrations_dir = "drizzle"
 
 # --- R2 (demo videos / thumbnails) ---
@@ -25,4 +25,4 @@ bucket_name = "glim-media"
 
 [vars]
 # Public base URL of the app (used by better-auth). Override per environment.
-BETTER_AUTH_URL = "http://localhost:3000"
+BETTER_AUTH_URL = "https://glim.ordinaryindividuality.workers.dev"

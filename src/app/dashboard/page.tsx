@@ -5,6 +5,10 @@ import { getDb, schema } from "@/db";
 import { getSessionUser } from "@/lib/auth";
 import { getAppStats, type AppStats } from "@/lib/feed";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { UserMenu } from "@/components/UserMenu";
+import { AppActions } from "@/components/AppActions";
+
+type AppStatus = "draft" | "published" | "hidden";
 
 export const dynamic = "force-dynamic";
 
@@ -61,19 +65,22 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Glim
         </Link>
-        <Link
-          href="/submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-sm hover:bg-muted"
-        >
-          <Plus className="h-4 w-4" /> Submit app
-        </Link>
+        <div className="flex items-center gap-2">
+          <UserMenu variant="inline" />
+          <Link
+            href="/submit"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-sm hover:bg-muted"
+          >
+            <Plus className="h-4 w-4" /> Submit app
+          </Link>
+        </div>
       </div>
 
       <h1 className="mt-5 text-2xl font-bold">Maker Dashboard</h1>
@@ -99,7 +106,13 @@ export default async function DashboardPage() {
           return (
             <AppPanel
               key={app.id}
-              app={{ name: app.name, slug: app.slug, tagline: app.tagline, status: app.status }}
+              app={{
+                id: app.id,
+                name: app.name,
+                slug: app.slug,
+                tagline: app.tagline,
+                status: app.status,
+              }}
               stats={s}
               comments={appComments.map((c) => ({
                 id: c.id,
@@ -119,7 +132,7 @@ function AppPanel({
   stats,
   comments,
 }: {
-  app: { name: string; slug: string; tagline: string; status: string };
+  app: { id: string; name: string; slug: string; tagline: string; status: AppStatus };
   stats?: AppStats;
   comments: { id: string; comment: string; rating: string | null }[];
 }) {
@@ -134,16 +147,25 @@ function AppPanel({
 
   return (
     <section className="rounded-2xl border border-border bg-muted p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <Link href={`/app/${app.slug}`} className="font-semibold hover:underline">
             {app.name}
           </Link>
           <p className="text-sm text-muted-foreground">{app.tagline}</p>
         </div>
-        <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-          {app.status}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span
+            className={
+              app.status === "hidden"
+                ? "rounded-full border border-border bg-yellow-500/10 px-2 py-0.5 text-xs text-yellow-300"
+                : "rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground"
+            }
+          >
+            {app.status}
+          </span>
+          <AppActions appId={app.id} status={app.status} />
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

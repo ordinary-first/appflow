@@ -228,11 +228,11 @@ pnpm db:seed:remote     # 원격 D1에 seed.sql 실행
 Codex 또는 다음 작업자가 이어서 할 것들. 우선순위 순으로 정렬.
 
 ### 필수 (MVP 완성도)
-- [ ] **`wrangler.toml`에 실제 D1 database_id 채우기** — 현재 `REPLACE_WITH_YOUR_D1_DATABASE_ID` placeholder
-- [ ] **Google OAuth Redirect URI 설정** — Google Cloud Console에서 `{앱URL}/api/auth/callback/google` 등록
+- [x] **`wrangler.toml`에 실제 D1 database_id 채우기** — `glim-db` production D1 ID 반영 완료
+- [x] **Google OAuth Redirect URI 설정** — Google Cloud Console에서 localhost/production callback 등록 완료
 - [ ] **R2 CORS 설정** — R2 버킷에서 영상 업로드 직접 presigned URL 방식으로 전환하려면 필요 (현재는 Worker 경유 업로드라 불필요)
-- [ ] **signOut 버튼** — 현재 로그인 버튼만 있고 로그아웃 없음. Header 또는 Dashboard에 추가 필요
-- [ ] **앱 수정/삭제** — Dashboard에서 본인 앱의 status 변경(hidden) 기능 없음
+- [x] **signOut 버튼** — 피드 헤더와 Dashboard에 로그인 사용자 칩 + 로그아웃 버튼 추가 완료
+- [x] **앱 수정/삭제** — Dashboard Hide/Unhide/Delete UI와 owner-only `PATCH`/`DELETE /api/apps/[id]` 추가 완료
 
 ### 개선 (UX)
 - [ ] **피드 무한 스크롤** — 현재 서버에서 40개를 한번에 로드. DB 커지면 페이지네이션 필요 (`/api/feed?cursor=`)
@@ -257,6 +257,7 @@ Codex 또는 다음 작업자가 이어서 할 것들. 우선순위 순으로 �
 |---|---|---|---|
 | 2026-06-11 | Claude (claude-fable-5) | `claude/keen-noether-23jwsg` | 전체 MVP 원샷 구현: 피드, Try View, 피드백 모달, Submit, Dashboard, 인증(better-auth), 익명→계정 병합, R2 스트리밍, D1 스키마+마이그레이션, 시드 12개. 빌드/타입체크/Workers 번들 전부 통과. |
 | 2026-06-11 | Claude (claude-sonnet-4-6) | `claude/keen-noether-23jwsg` | 이 HANDOFF.md 작성. 구현 인벤토리, 설계 결정 근거, TODO 목록 정리. |
+| 2026-06-11 | Codex (GPT-5) | `claude/keen-noether-23jwsg` | Google OAuth Client 생성 및 Cloudflare `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` secrets 주입, unused initial OAuth client 삭제, WSL OpenNext/Workers 재배포, OAuth 재로그인 smoke 통과. 작업 1 Dashboard/Auth UX 반영: UserMenu signOut, Dashboard Hide/Delete UI, owner-only `PATCH`/`DELETE /api/apps/[id]`, production D1/BETTER_AUTH_URL 설정. WSL typecheck/build/deploy 통과. |
 
 ---
 
