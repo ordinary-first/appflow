@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Plus, LayoutDashboard } from "lucide-react";
+import { Plus, LayoutDashboard, Bookmark } from "lucide-react";
 import { AppCard } from "./AppCard";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { Dialog } from "@/components/ui/dialog";
@@ -177,6 +177,13 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
             className="flex h-9 items-center gap-1.5 rounded-full border border-border bg-black/50 px-3 text-sm backdrop-blur transition hover:bg-muted"
           >
             <Plus className="h-4 w-4" /> Submit
+          </Link>
+          <Link
+            href="/saved"
+            aria-label="Saved"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-black/50 backdrop-blur transition hover:bg-muted"
+          >
+            <Bookmark className="h-4 w-4" />
           </Link>
           {session?.user && (
             <>

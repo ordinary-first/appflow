@@ -236,7 +236,7 @@ Codex 또는 다음 작업자가 이어서 할 것들. 우선순위 순으로 �
 
 ### 개선 (UX)
 - [ ] **피드 무한 스크롤** — 현재 서버에서 40개를 한번에 로드. DB 커지면 페이지네이션 필요 (`/api/feed?cursor=`)
-- [ ] **저장 목록 페이지** — 로그인 사용자의 `save` interaction으로 저장된 앱 목록 (`/saved`)
+- [x] **저장 목록 페이지** — `/saved` 추가, 로그인 사용자는 D1의 `save` interaction SSR, 익명 사용자는 `localStorage` + `GET /api/apps?ids=` 클라이언트 hydration
 - [ ] **카테고리 필터** — 피드 상단 필터 칩 (AI / Productivity / DevTools …)
 - [ ] **좋아요 상태 서버 동기화** — 현재 localStorage만. 로그인 사용자는 DB 기준으로 초기화 필요
 - [ ] **Try View에서 뒤로가기 시 피드 스크롤 위치 복원** — 현재 `router.push('/')` 시 피드가 처음으로 돌아감. `?feedback=appId` 쿼리 파라미터로 피드백 모달 여는 로직은 이미 있음 (`Feed.tsx` useEffect)
@@ -258,6 +258,7 @@ Codex 또는 다음 작업자가 이어서 할 것들. 우선순위 순으로 �
 | 2026-06-11 | Claude (claude-fable-5) | `claude/keen-noether-23jwsg` | 전체 MVP 원샷 구현: 피드, Try View, 피드백 모달, Submit, Dashboard, 인증(better-auth), 익명→계정 병합, R2 스트리밍, D1 스키마+마이그레이션, 시드 12개. 빌드/타입체크/Workers 번들 전부 통과. |
 | 2026-06-11 | Claude (claude-sonnet-4-6) | `claude/keen-noether-23jwsg` | 이 HANDOFF.md 작성. 구현 인벤토리, 설계 결정 근거, TODO 목록 정리. |
 | 2026-06-11 | Codex (GPT-5) | `claude/keen-noether-23jwsg` | Google OAuth Client 생성 및 Cloudflare `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` secrets 주입, unused initial OAuth client 삭제, WSL OpenNext/Workers 재배포, OAuth 재로그인 smoke 통과. 작업 1 Dashboard/Auth UX 반영: UserMenu signOut, Dashboard Hide/Delete UI, owner-only `PATCH`/`DELETE /api/apps/[id]`, production D1/BETTER_AUTH_URL 설정. WSL typecheck/build/deploy 통과. |
+| 2026-06-11 | Claude (claude-opus-4-7) | `claude/keen-noether-23jwsg` | 작업 2 (저장 페이지 `/saved`) 구현: `GET /api/apps?ids=` 배치 조회 추가, 로그인 사용자는 `interactions(type='save')` 그룹 by 최근저장순 SSR, 익명 사용자는 `localStorage.glim_saves` → 클라이언트 fetch fallback + 로그인 권유 카드. `SavedGrid`/`AnonymousSaved` 컴포넌트 추가, Feed 헤더에 Bookmark 링크. Windows typecheck 통과. |
 
 ---
 

@@ -1,8 +1,39 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import { getSessionUser } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
+
+/**
+ * GET /api/apps?ids=id1,id2,... — public batch lookup of published apps.
+ * Used by the anonymous /saved view to hydrate localStorage-only bookmarks.
+ * Hidden/draft apps are excluded; max 100 ids per call.
+ */
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const idsParam = url.searchParams.get("ids") ?? "";
+  const ids = idsParam
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 100);
+  if (ids.length === 0) {
+    return NextResponse.json({ apps: [] });
+  }
+  const db = await getDb();
+  const rows = await db
+    .select({
+      id: schema.apps.id,
+      slug: schema.apps.slug,
+      name: schema.apps.name,
+      tagline: schema.apps.tagline,
+      category: schema.apps.category,
+      thumbnailUrl: schema.apps.thumbnailUrl,
+    })
+    .from(schema.apps)
+    .where(and(eq(schema.apps.status, "published"), inArray(schema.apps.id, ids)));
+  return NextResponse.json({ apps: rows });
+}
 
 const CATEGORIES = [
   "AI",
