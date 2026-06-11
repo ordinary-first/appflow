@@ -1,0 +1,108 @@
+import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import { getDb, schema } from "@/db";
+import { getSessionUser } from "@/lib/auth";
+import { slugify } from "@/lib/utils";
+
+const CATEGORIES = [
+  "AI",
+  "Productivity",
+  "DevTools",
+  "Finance",
+  "Health",
+  "Content",
+  "Education",
+  "Game",
+  "Other",
+];
+
+/** Create an app. Login required (this is the one allowed login gate). */
+export async function POST(req: Request) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "login required" }, { status: 401 });
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid json" }, { status: 400 });
+  }
+
+  const name = String(body.name ?? "").trim();
+  const tagline = String(body.tagline ?? "").trim();
+  const url = String(body.url ?? "").trim();
+  const category = String(body.category ?? "").trim();
+  if (!name || !tagline || !url || !CATEGORIES.includes(category)) {
+    return NextResponse.json(
+      { error: "name, tagline, url, category are required" },
+      { status: 400 }
+    );
+  }
+  try {
+    const parsed = new URL(url);
+    if (!/^https?:$/.test(parsed.protocol)) throw new Error();
+  } catch {
+    return NextResponse.json({ error: "invalid app url" }, { status: 400 });
+  }
+
+  const demoVideoUrl = body.demoVideoUrl ? String(body.demoVideoUrl) : null;
+  const youtubeUrl = body.youtubeUrl ? String(body.youtubeUrl) : null;
+  if (!demoVideoUrl && !youtubeUrl) {
+    return NextResponse.json(
+      { error: "a demo video (upload or YouTube URL) is required" },
+      { status: 400 }
+    );
+  }
+
+  const db = await getDb();
+
+  // Unique slug
+  const base = slugify(name);
+  let slug = base;
+  for (let i = 2; ; i++) {
+    const existing = await db
+      .select({ id: schema.apps.id })
+      .from(schema.apps)
+      .where(eq(schema.apps.slug, slug))
+      .limit(1);
+    if (existing.length === 0) break;
+    slug = `${base}-${i}`;
+  }
+
+  const now = new Date();
+  const id = crypto.randomUUID();
+  const tags = Array.isArray(body.tags)
+    ? (body.tags as unknown[]).map((t) => String(t).trim()).filter(Boolean).slice(0, 8)
+    : [];
+
+  await db.insert(schema.apps).values({
+    id,
+    slug,
+    name: name.slice(0, 80),
+    tagline: tagline.slice(0, 120),
+    description: body.description ? String(body.description).slice(0, 2000) : null,
+    url,
+    demoVideoUrl,
+    youtubeUrl,
+    thumbnailUrl: body.thumbnailUrl ? String(body.thumbnailUrl) : null,
+    category,
+    tags,
+    makerId: user.id, // ownership comes from the verified session, never the body
+    makerName: body.makerName ? String(body.makerName).slice(0, 60) : user.name,
+    makerLinks: {
+      website: body.makerWebsite ? String(body.makerWebsite) : undefined,
+      x: body.makerX ? String(body.makerX) : undefined,
+      github: body.makerGithub ? String(body.makerGithub) : undefined,
+    },
+    guestModeAvailable: Boolean(body.guestModeAvailable),
+    noLoginTrialAvailable: Boolean(body.noLoginTrialAvailable),
+    embeddable: body.embeddable === undefined ? true : Boolean(body.embeddable),
+    status: "published",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return NextResponse.json({ ok: true, id, slug });
+}

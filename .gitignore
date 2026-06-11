@@ -1,0 +1,19 @@
+# deps
+node_modules/
+
+# next / opennext / wrangler build output
+.next/
+.open-next/
+.wrangler/
+out/
+
+# env & secrets
+.env
+.env.local
+.dev.vars
+
+# misc
+.DS_Store
+*.log
+tsconfig.tsbuildinfo
+next-env.d.ts

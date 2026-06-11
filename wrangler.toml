@@ -1,0 +1,28 @@
+# Glim — Cloudflare Workers configuration
+name = "glim"
+main = ".open-next/worker.js"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+# --- D1 (SQLite) ---
+# Create with: wrangler d1 create glim-db
+# Then paste the printed database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "glim-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "drizzle"
+
+# --- R2 (demo videos / thumbnails) ---
+# Create with: wrangler r2 bucket create glim-media
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "glim-media"
+
+[vars]
+# Public base URL of the app (used by better-auth). Override per environment.
+BETTER_AUTH_URL = "http://localhost:3000"

@@ -1,0 +1,43 @@
+{
+  "name": "glim",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "cf:build": "opennextjs-cloudflare build",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply glim-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply glim-db --remote",
+    "db:seed:local": "wrangler d1 execute glim-db --local --file=./seed.sql",
+    "db:seed:remote": "wrangler d1 execute glim-db --remote --file=./seed.sql"
+  },
+  "dependencies": {
+    "@opennextjs/cloudflare": "^1.3.0",
+    "better-auth": "^1.2.9",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.44.2",
+    "lucide-react": "^0.515.0",
+    "next": "^15.3.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250610.0",
+    "@tailwindcss/postcss": "^4.1.8",
+    "@types/node": "^22.15.30",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "drizzle-kit": "^0.31.1",
+    "tailwindcss": "^4.1.8",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.19.1"
+  }
+}
