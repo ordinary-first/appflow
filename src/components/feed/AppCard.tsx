@@ -22,7 +22,7 @@ export function AppCard({
   onSave,
   onFollow,
   onShare,
-  onFeedback,
+  onComments,
   onVideoComplete,
 }: {
   app: FeedItem;
@@ -34,7 +34,7 @@ export function AppCard({
   onSave: () => void;
   onFollow: () => void;
   onShare: () => void;
-  onFeedback: () => void;
+  onComments: () => void;
   onVideoComplete: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -196,8 +196,8 @@ export function AppCard({
           }
         />
         <RailButton
-          label={String(app.feedbackCount)}
-          onClick={onFeedback}
+          label={String(app.commentCount)}
+          onClick={onComments}
           icon={<MessageSquare className="h-7 w-7" />}
         />
         <RailButton label="Share" onClick={onShare} icon={<Share2 className="h-7 w-7" />} />

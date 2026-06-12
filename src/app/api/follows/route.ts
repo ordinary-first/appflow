@@ -100,6 +100,31 @@ export async function POST(req: Request) {
       createdAt: new Date(),
     });
     following = true;
+
+    // Notify the followed maker (app target → its claimed maker). System
+    // account and self-follows produce no notification.
+    let recipient: string | null = null;
+    if (targetType === "user") {
+      recipient = targetId;
+    } else {
+      const [app] = await db
+        .select({ makerId: schema.apps.makerId, status: schema.apps.status })
+        .from(schema.apps)
+        .where(eq(schema.apps.id, targetId))
+        .limit(1);
+      if (app && app.status !== "unclaimed") recipient = app.makerId;
+    }
+    if (recipient && recipient !== user.id && recipient !== "glim-system") {
+      await db.insert(schema.notifications).values({
+        id: crypto.randomUUID(),
+        recipientId: recipient,
+        type: "follow",
+        postId: null,
+        actorId: user.id,
+        read: false,
+        createdAt: new Date(),
+      });
+    }
   }
 
   // Keep the cached counter in sync for app targets.

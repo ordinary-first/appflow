@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppCard } from "./AppCard";
 import { BottomNav } from "@/components/BottomNav";
+import { CommentsSheet } from "@/components/CommentsSheet";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { Dialog } from "@/components/ui/dialog";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
@@ -39,6 +40,7 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
   const [followedApps, setFollowedApps] = useState<Set<string>>(new Set());
   const [followingItems, setFollowingItems] = useState<FeedItem[] | null>(null);
   const [feedbackApp, setFeedbackApp] = useState<{ id: string; name: string } | null>(null);
+  const [commentsPost, setCommentsPost] = useState<{ postId: string; appName: string } | null>(null);
   const [showNudge, setShowNudge] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const completedRef = useRef<Set<string>>(new Set());
@@ -328,7 +330,7 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
             onSave={() => handleSave(app)}
             onFollow={() => handleFollow(app)}
             onShare={() => handleShare(app)}
-            onFeedback={() => setFeedbackApp({ id: app.id, name: app.name })}
+            onComments={() => setCommentsPost({ postId: app.postId, appName: app.name })}
             onVideoComplete={() => completedRef.current.add(app.id)}
           />
         ))}
@@ -371,6 +373,8 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
       </div>
 
       <BottomNav />
+
+      <CommentsSheet post={commentsPost} onClose={() => setCommentsPost(null)} />
 
       <FeedbackModal
         app={feedbackApp}

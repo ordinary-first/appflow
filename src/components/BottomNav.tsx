@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Bookmark, Plus, Bell, User } from "lucide-react";
@@ -13,6 +14,23 @@ import { cn } from "@/lib/utils";
  */
 export function BottomNav() {
   const pathname = usePathname();
+  const [unread, setUnread] = useState(0);
+
+  // Cheap one-shot badge check; refreshes on route change (Inbox clears it).
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/notifications")
+      .then(async (r): Promise<{ unread: number }> =>
+        r.ok ? ((await r.json()) as { unread: number }) : { unread: 0 }
+      )
+      .then((d) => {
+        if (!cancelled) setUnread(d.unread);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   return (
     <nav
@@ -42,7 +60,14 @@ export function BottomNav() {
         label="Inbox"
         active={pathname === "/notifications"}
       >
-        <Bell className="h-6 w-6" />
+        <span className="relative">
+          <Bell className="h-6 w-6" />
+          {unread > 0 && (
+            <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
+        </span>
       </Tab>
       <Tab href="/profile" label="Profile" active={pathname === "/profile"}>
         <User className="h-6 w-6" />

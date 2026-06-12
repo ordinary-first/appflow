@@ -33,6 +33,7 @@ export default async function HomePage() {
       likes: stats.likes,
       saves: stats.saves,
       feedbackCount: stats.feedbackCount,
+      commentCount: post.commentCount,
     }));
   } catch {
     // DB not migrated yet — render the empty state instead of crashing.

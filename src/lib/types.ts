@@ -23,4 +23,5 @@ export type FeedItem = {
   likes: number;
   saves: number;
   feedbackCount: number;
+  commentCount: number;
 };

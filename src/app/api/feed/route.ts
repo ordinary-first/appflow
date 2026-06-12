@@ -66,6 +66,7 @@ export async function GET(req: Request) {
       likes: stats?.likes ?? 0,
       saves: stats?.saves ?? 0,
       feedbackCount: stats?.feedbackCount ?? 0,
+      commentCount: post.commentCount,
     };
   });
 
