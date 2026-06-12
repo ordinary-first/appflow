@@ -5,8 +5,10 @@ import { getSessionUser } from "@/lib/auth";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const VALID_STATUSES = new Set(["draft", "published", "hidden"] as const);
-type AppStatus = "draft" | "published" | "hidden";
+/** Makers can only toggle these via PATCH — 'unclaimed' is reserved for the
+ * curation/claim flow and never settable through this endpoint. */
+const VALID_STATUSES = ["draft", "published", "hidden"] as const;
+type PatchableStatus = (typeof VALID_STATUSES)[number];
 
 /**
  * PATCH /api/apps/[id] — owner only.
@@ -35,14 +37,14 @@ export async function PATCH(req: Request, { params }: Ctx) {
   }
 
   const next = String(body.status ?? "");
-  if (!VALID_STATUSES.has(next as AppStatus)) {
+  if (!(VALID_STATUSES as readonly string[]).includes(next)) {
     return NextResponse.json({ error: "invalid status" }, { status: 400 });
   }
 
   const db = await getDb();
   const res = await db
     .update(schema.apps)
-    .set({ status: next as AppStatus, updatedAt: new Date() })
+    .set({ status: next as PatchableStatus, updatedAt: new Date() })
     .where(and(eq(schema.apps.id, id), eq(schema.apps.makerId, user.id)))
     .returning({ id: schema.apps.id, status: schema.apps.status });
 

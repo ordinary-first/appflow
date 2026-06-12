@@ -8,7 +8,7 @@ import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { UserMenu } from "@/components/UserMenu";
 import { AppActions } from "@/components/AppActions";
 
-type AppStatus = "draft" | "published" | "hidden";
+type AppStatus = "unclaimed" | "draft" | "published" | "hidden";
 
 export const dynamic = "force-dynamic";
 

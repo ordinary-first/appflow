@@ -98,3 +98,21 @@ VALUES
  'https://www.youtube.com/watch?v=aqz-KE-bpKQ', NULL,
  'Content', '["changelog","marketing","saas"]', 'seed-maker', 'Glim Team', NULL,
  1, 1, 1, 'published', unixepoch()*1000 - 86400000*12, unixepoch()*1000);
+
+-- ---------------------------------------------------------------------------
+-- Platform v2: one official post per seeded app (mirrors migration 0001's
+-- backfill so a freshly seeded DB matches the posts-based feed model).
+-- ---------------------------------------------------------------------------
+INSERT OR IGNORE INTO posts (id, app_id, author_id, type, status, media_type, video_url, thumbnail_url, caption, created_at)
+SELECT
+  'post-' || id,
+  id,
+  maker_id,
+  'official',
+  'published',
+  'video',
+  COALESCE(demo_video_url, youtube_url),
+  thumbnail_url,
+  tagline,
+  created_at
+FROM apps;

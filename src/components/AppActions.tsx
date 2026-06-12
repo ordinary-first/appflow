@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Trash2, Loader2 } from "lucide-react";
 
-type AppStatus = "draft" | "published" | "hidden";
+type AppStatus = "unclaimed" | "draft" | "published" | "hidden";
 
 /**
  * Per-app maker actions on the dashboard: hide/unhide + delete.
