@@ -8,4 +8,6 @@ interface CloudflareEnv {
   BETTER_AUTH_SECRET?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /** Operator token for POST /api/claims/approve (claim flow, manual v1). */
+  CLAIM_ADMIN_TOKEN?: string;
 }

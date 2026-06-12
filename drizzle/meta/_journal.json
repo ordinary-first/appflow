@@ -15,6 +15,13 @@
       "when": 1781250000000,
       "tag": "0001_platform_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1781260000000,
+      "tag": "0002_claim_requests",
+      "breakpoints": true
     }
   ]
 }

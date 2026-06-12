@@ -277,7 +277,12 @@ export const saves = sqliteTable(
   ]
 );
 
-export const NOTIFICATION_TYPES = ["comment", "reply", "follow"] as const;
+export const NOTIFICATION_TYPES = [
+  "comment",
+  "reply",
+  "follow",
+  "claim_approved",
+] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 /** In-app notifications (v1). 'new post from followed app' is NOT stored —
@@ -364,6 +369,30 @@ export const feedback = sqliteTable(
     index("feedback_app_idx").on(t.appId),
     index("feedback_anon_idx").on(t.anonymousId),
     index("feedback_user_idx").on(t.userId),
+  ]
+);
+
+/** A maker's request to own a curated (unclaimed) app. v1 approval is a
+ * manual operator action via the token-guarded /api/claims/approve. */
+export const claimRequests = sqliteTable(
+  "claim_requests",
+  {
+    id: text("id").primaryKey(),
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id),
+    status: text("status", { enum: ["pending", "approved", "rejected"] })
+      .notNull()
+      .default("pending"),
+    proofUrl: text("proof_url"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    index("claim_requests_app_idx").on(t.appId, t.status),
+    index("claim_requests_user_idx").on(t.userId),
   ]
 );
 
