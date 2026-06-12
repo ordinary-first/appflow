@@ -41,6 +41,9 @@ export function AppCard({
   const startedRef = useRef(false);
   const completedRef = useRef(false);
   const [muted, setMuted] = useState(true);
+  // Center CTA goes from subtle to solid once the demo has been fully seen —
+  // the moment the viewer has enough context to decide.
+  const [ctaBoost, setCtaBoost] = useState(false);
 
   // Play/pause with activation; record video_start once.
   useEffect(() => {
@@ -64,9 +67,20 @@ export function AppCard({
     if (v.currentTime >= v.duration - 0.35) {
       completedRef.current = true;
       track(app.id, "video_complete", undefined, { once: true });
+      setCtaBoost(true);
       onVideoComplete();
     }
   };
+
+  // Primary action target — mirrors the bottom CTA's platform logic.
+  const tryHref =
+    app.platform === "web"
+      ? `/try/${app.id}`
+      : app.platform === "ios"
+        ? (app.storeUrls?.ios ?? app.url)
+        : app.platform === "android"
+          ? (app.storeUrls?.android ?? app.url)
+          : (app.storeUrls?.ios ?? app.storeUrls?.android ?? app.url);
 
   const ytId = !app.demoVideoUrl && app.youtubeUrl ? youtubeVideoId(app.youtubeUrl) : null;
   const isSlideshow =
@@ -78,6 +92,7 @@ export function AppCard({
       {isSlideshow ? (
         <ImageSlideshow
           images={app.imageUrls!}
+          captions={app.imageCaptions}
           alt={app.name}
           active={active}
           onViewedAll={() => {
@@ -86,6 +101,7 @@ export function AppCard({
             if (!completedRef.current) {
               completedRef.current = true;
               track(app.id, "video_complete", undefined, { once: true });
+              setCtaBoost(true);
               onVideoComplete();
             }
           }}
@@ -117,20 +133,62 @@ export function AppCard({
         </div>
       )}
 
+      {/* ---- top gradient: keeps the header/tabs legible on bright media ---- */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/60 to-transparent" />
+
+      {/* ---- center Try CTA: subtle while watching, solid once the demo
+           has been fully seen (the decision moment) ---- */}
+      <div className="pointer-events-none absolute inset-x-0 top-[58%] flex justify-center">
+        {app.platform === "web" ? (
+          <Link
+            href={tryHref}
+            className={cn(
+              "pointer-events-auto inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-semibold backdrop-blur-md transition-all duration-500",
+              ctaBoost
+                ? "scale-105 bg-white text-black shadow-lg shadow-black/30"
+                : "border border-white/40 bg-white/15 text-white"
+            )}
+          >
+            Try it now →
+          </Link>
+        ) : (
+          <a
+            href={tryHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => track(app.id, "try_click")}
+            className={cn(
+              "pointer-events-auto inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-6 text-sm font-semibold backdrop-blur-md transition-all duration-500",
+              ctaBoost
+                ? "scale-105 bg-white text-black shadow-lg shadow-black/30"
+                : "border border-white/40 bg-white/15 text-white"
+            )}
+          >
+            <ExternalLink className="h-4 w-4" /> Get the app
+          </a>
+        )}
+      </div>
+
       {/* ---- bottom gradient + info ---- */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/90 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-96 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
       {/* pb-20 keeps the Try button clear of the fixed bottom nav */}
       <div className="absolute bottom-0 left-0 right-16 p-5 pb-20">
-        <span className="inline-block rounded-full border border-border bg-black/50 px-2.5 py-0.5 text-xs text-muted-foreground">
+        <span className="inline-block rounded-full border border-white/15 bg-black/50 px-2.5 py-0.5 text-xs text-white/80">
           {app.category}
         </span>
         <Link href={`/app/${app.slug}`} className="mt-2 block">
-          <h2 className="text-xl font-bold leading-tight">{app.name}</h2>
+          <h2 className="text-xl font-bold leading-tight text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">
+            {app.name}
+          </h2>
         </Link>
-        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+        <p className="mt-1 line-clamp-2 text-sm text-white/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
           {app.tagline}
         </p>
-        <p className="mt-1 text-xs text-muted-foreground/70">by {app.makerName}</p>
+        <p className="mt-1 text-xs text-white/60 [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+          by {app.makerName}
+          {app.tryCount > 0 && <> · {app.tryCount} tried</>}
+          {app.feedbackCount > 0 && <> · {app.feedbackCount} feedback</>}
+        </p>
 
         {app.platform === "web" ? (
           <Link
@@ -194,8 +252,8 @@ export function AppCard({
         )}
       </div>
 
-      {/* ---- right action rail ---- */}
-      <div className="absolute bottom-36 right-3 flex flex-col items-center gap-5">
+      {/* ---- right action rail (TikTok-minimal: bare icons, no chrome) ---- */}
+      <div className="absolute bottom-36 right-3 flex flex-col items-center gap-4">
         {/* App avatar + follow toggle (TikTok-style: avatar with a + badge) */}
         <div className="relative mb-1">
           <Link
@@ -236,7 +294,7 @@ export function AppCard({
           onClick={onLike}
           icon={
             <Heart
-              className={cn("h-7 w-7", liked && "fill-red-500 text-red-500")}
+              className={cn("h-6 w-6", liked && "fill-red-500 text-red-500")}
             />
           }
         />
@@ -245,16 +303,16 @@ export function AppCard({
           onClick={onSave}
           icon={
             <Bookmark
-              className={cn("h-7 w-7", saved && "fill-yellow-400 text-yellow-400")}
+              className={cn("h-6 w-6", saved && "fill-yellow-400 text-yellow-400")}
             />
           }
         />
         <RailButton
           label={String(app.commentCount)}
           onClick={onComments}
-          icon={<MessageSquare className="h-7 w-7" />}
+          icon={<MessageSquare className="h-6 w-6" />}
         />
-        <RailButton label="Share" onClick={onShare} icon={<Share2 className="h-7 w-7" />} />
+        <RailButton label="Share" onClick={onShare} icon={<Share2 className="h-6 w-6" />} />
       </div>
     </section>
   );
@@ -267,11 +325,13 @@ export function AppCard({
  */
 function ImageSlideshow({
   images,
+  captions,
   alt,
   active,
   onViewedAll,
 }: {
   images: string[];
+  captions?: string[] | null;
   alt: string;
   active: boolean;
   onViewedAll: () => void;
@@ -370,6 +430,15 @@ function ImageSlideshow({
           </div>
         </>
       )}
+
+      {/* per-slide feature caption: every swipe names the feature it shows */}
+      {captions?.[index] && (
+        <div className="pointer-events-none absolute inset-x-6 top-8 z-10 flex justify-center">
+          <span className="max-w-full rounded-full bg-black/60 px-4 py-1.5 text-center text-sm font-medium text-white backdrop-blur">
+            {captions[index]}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -383,13 +452,17 @@ function RailButton({
   label: string;
   onClick: () => void;
 }) {
+  // Bare icons on a drop shadow (no pill chrome) — TikTok-style minimal rail.
+  // p-1.5 keeps the touch target ~36px despite the smaller visual footprint.
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center gap-1 text-foreground/90 transition hover:text-foreground cursor-pointer"
+      className="flex flex-col items-center gap-0.5 text-white transition hover:opacity-80 cursor-pointer"
     >
-      <span className="rounded-full bg-black/40 p-2.5">{icon}</span>
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="p-1.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]">{icon}</span>
+      <span className="text-[11px] font-medium text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+        {label}
+      </span>
     </button>
   );
 }

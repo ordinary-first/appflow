@@ -40,6 +40,7 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
   const [mediaMode, setMediaMode] = useState<"video" | "images">("video");
   const [video, setVideo] = useState<File | null>(null);
   const [images, setImages] = useState<File[]>([]);
+  const [captions, setCaptions] = useState<string[]>([]);
   const [thumb, setThumb] = useState<File | null>(null);
 
   const onPickImages = (files: FileList | null) => {
@@ -52,6 +53,7 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
     }
     setError(null);
     setImages(picked);
+    setCaptions(picked.map(() => ""));
   };
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -93,6 +95,10 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
           demoVideoUrl,
           youtubeUrl: (mediaMode === "video" && youtubeUrl) || undefined,
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+          imageCaptions:
+            imageUrls.length > 0 && captions.some((c) => c.trim())
+              ? captions.map((c) => c.trim())
+              : undefined,
           thumbnailUrl,
           platform,
           storeUrlIos: fd.get("storeUrlIos") || undefined,
@@ -242,10 +248,31 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
               onChange={(e) => onPickImages(e.target.files)}
             />
             {images.length > 0 && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {images.length} image{images.length > 1 ? "s" : ""} selected:{" "}
-                {images.map((f) => f.name).join(", ")}
-              </p>
+              <div className="mt-2 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Optional: one line per screenshot naming the feature it shows
+                  — viewers discover a feature with every swipe.
+                </p>
+                {images.map((f, i) => (
+                  <div key={`${f.name}-${i}`} className="flex items-center gap-2">
+                    <span className="w-6 flex-none text-center text-xs text-muted-foreground">
+                      {i + 1}
+                    </span>
+                    <Input
+                      value={captions[i] ?? ""}
+                      maxLength={80}
+                      placeholder={`What does screenshot ${i + 1} show? e.g. "AI drafts the PRD for you"`}
+                      onChange={(e) =>
+                        setCaptions((prev) => {
+                          const next = [...prev];
+                          next[i] = e.target.value;
+                          return next;
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
             )}
           </Field>
         )}

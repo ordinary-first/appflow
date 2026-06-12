@@ -21,6 +21,7 @@ export default async function HomePage() {
       demoVideoUrl: post.videoUrl,
       youtubeUrl: app.youtubeUrl,
       imageUrls: post.imageUrls ?? null,
+      imageCaptions: post.imageCaptions ?? null,
       thumbnailUrl: post.thumbnailUrl ?? app.thumbnailUrl,
       iconUrl: app.iconUrl,
       makerName: app.makerName,
@@ -36,6 +37,7 @@ export default async function HomePage() {
       saves: stats.saves,
       feedbackCount: stats.feedbackCount,
       commentCount: post.commentCount,
+      tryCount: stats.tryClicks,
     }));
   } catch {
     // DB not migrated yet — render the empty state instead of crashing.

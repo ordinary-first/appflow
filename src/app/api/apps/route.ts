@@ -109,6 +109,13 @@ export async function POST(req: Request) {
         .filter(Boolean)
         .slice(0, 5)
     : [];
+  // Per-image captions, index-aligned with imageUrls. Empty strings are kept
+  // so alignment survives (slide 3 captioned, slide 2 not).
+  const imageCaptions = Array.isArray(body.imageCaptions)
+    ? (body.imageCaptions as unknown[])
+        .map((c) => String(c ?? "").trim().slice(0, 80))
+        .slice(0, imageUrls.length)
+    : [];
   if (!demoVideoUrl && !youtubeUrl && imageUrls.length === 0) {
     return NextResponse.json(
       { error: "a demo video (upload or YouTube URL) or 1–5 screenshots are required" },
@@ -183,6 +190,8 @@ export async function POST(req: Request) {
     mediaType,
     videoUrl: demoVideoUrl,
     imageUrls: mediaType === "images" ? imageUrls : null,
+    imageCaptions:
+      mediaType === "images" && imageCaptions.some(Boolean) ? imageCaptions : null,
     thumbnailUrl,
     caption: tagline.slice(0, 120),
     createdAt: now,

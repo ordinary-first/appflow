@@ -59,6 +59,7 @@ export async function GET(req: Request) {
       demoVideoUrl: post.videoUrl,
       youtubeUrl: app.youtubeUrl,
       imageUrls: post.imageUrls ?? null,
+      imageCaptions: post.imageCaptions ?? null,
       thumbnailUrl: post.thumbnailUrl ?? app.thumbnailUrl,
       iconUrl: app.iconUrl,
       makerName: app.makerName,
@@ -69,6 +70,7 @@ export async function GET(req: Request) {
       saves: stats?.saves ?? 0,
       feedbackCount: stats?.feedbackCount ?? 0,
       commentCount: post.commentCount,
+      tryCount: stats?.tryClicks ?? 0,
     };
   });
 

@@ -273,10 +273,10 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
       {/* Top: centered feed tabs (TikTok-style), logo tucked left. */}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-40 p-4">
         <div className="relative flex items-center justify-center">
-          <span className="absolute left-0 text-lg font-bold tracking-tight">
+          <span className="absolute left-0 text-xl font-extrabold tracking-tighter text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
             Glim
           </span>
-          <nav className="pointer-events-auto flex items-center gap-5 text-[15px] font-semibold">
+          <nav className="pointer-events-auto flex items-center gap-5 text-[15px] font-semibold drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
             <TopTab active={tab === "foryou"} onClick={() => setTab("foryou")}>
               For You
             </TopTab>
@@ -435,8 +435,8 @@ function TopTab({
       className={cn(
         "relative pb-1 transition cursor-pointer",
         active
-          ? "text-foreground after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-foreground"
-          : "text-foreground/50 hover:text-foreground/80"
+          ? "text-white after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-white"
+          : "text-white/60 hover:text-white/80"
       )}
     >
       {children}

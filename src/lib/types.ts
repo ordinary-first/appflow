@@ -15,6 +15,8 @@ export type FeedItem = {
   youtubeUrl: string | null;
   /** Screenshot slideshow (mediaType 'images'): 2–5 R2/external URLs. */
   imageUrls: string[] | null;
+  /** Per-image captions, index-aligned with imageUrls (may be shorter). */
+  imageCaptions: string[] | null;
   thumbnailUrl: string | null;
   /** App logo for the rail avatar; falls back to thumbnail, then initial. */
   iconUrl: string | null;
@@ -26,4 +28,6 @@ export type FeedItem = {
   saves: number;
   feedbackCount: number;
   commentCount: number;
+  /** Trust signal: how many people clicked Try on this app. */
+  tryCount: number;
 };

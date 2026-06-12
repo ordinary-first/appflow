@@ -183,6 +183,9 @@ export const posts = sqliteTable(
     /** Up to 5 image URLs (JPEG/PNG/WebP, ≤5MB each), JSON array.
      * TEXT-as-JSON is fine for v1 read patterns on D1. */
     imageUrls: text("image_urls", { mode: "json" }).$type<string[]>(),
+    /** Optional per-image captions, index-aligned with imageUrls ("swipe =
+     * feature discovery": each slide names the feature it shows). */
+    imageCaptions: text("image_captions", { mode: "json" }).$type<string[]>(),
     thumbnailUrl: text("thumbnail_url"),
     caption: text("caption"),
     /** Cached counters — updated in the same write as likes/comments. */

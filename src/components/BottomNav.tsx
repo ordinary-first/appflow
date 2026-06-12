@@ -34,7 +34,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 flex items-stretch justify-around border-t border-border bg-black/85 backdrop-blur supports-[backdrop-filter]:bg-black/60"
+      className="fixed inset-x-0 bottom-0 z-50 flex items-stretch justify-around border-t border-white/[0.08] bg-black/85 backdrop-blur supports-[backdrop-filter]:bg-black/60"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <Tab href="/" label="Home" active={pathname === "/"}>
@@ -91,7 +91,7 @@ function Tab({
     <Link
       href={href}
       className={cn(
-        "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition",
+        "flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] transition",
         active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
       )}
     >
