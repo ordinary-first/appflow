@@ -49,7 +49,8 @@ export default async function SavedPage() {
         .from(schema.apps)
         .where(
           and(
-            eq(schema.apps.status, "published"),
+            // Unclaimed (curated) apps are public — keep them in saved lists.
+            inArray(schema.apps.status, ["published", "unclaimed"]),
             inArray(schema.apps.id, orderedIds),
           ),
         );

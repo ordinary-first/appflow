@@ -25,6 +25,8 @@ export default async function HomePage() {
       iconUrl: app.iconUrl,
       makerName: app.makerName,
       embeddable: app.embeddable,
+      platform: app.platform,
+      storeUrls: app.storeUrls ?? null,
       // Interim display source: interactions stats (the client still writes
       // likes/saves via track()). Migration COPIED legacy rows into
       // likes/saves, so stats covers full history without double counting.

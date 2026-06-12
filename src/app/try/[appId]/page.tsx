@@ -18,7 +18,10 @@ export default async function TryPage({
     .where(eq(schema.apps.id, appId))
     .limit(1);
 
-  if (!app || app.status !== "published") notFound();
+  // Unclaimed (curated) apps are public and fully try-able — same rule as the
+  // feed and the app detail page. Only draft/hidden are excluded.
+  if (!app || !["published", "unclaimed"].includes(app.status)) notFound();
+  if (app.platform !== "web") notFound(); // native apps link out; no iframe view
 
   return (
     <TryView

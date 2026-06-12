@@ -154,12 +154,63 @@ export default async function AppDetailPage({
           <h1 className="mt-2 text-2xl font-bold">{app.name}</h1>
           <p className="mt-1 text-muted-foreground">{app.tagline}</p>
         </div>
-        <Link
-          href={`/try/${app.id}`}
-          className="inline-flex h-12 shrink-0 items-center rounded-xl bg-foreground px-6 font-semibold text-background hover:bg-foreground/90"
-        >
-          Try
-        </Link>
+        {app.platform === "web" ? (
+          <Link
+            href={`/try/${app.id}`}
+            className="inline-flex h-12 shrink-0 items-center rounded-xl bg-foreground px-6 font-semibold text-background hover:bg-foreground/90"
+          >
+            Try
+          </Link>
+        ) : app.platform === "cross_platform" ? (
+          <div className="flex gap-2">
+            {app.storeUrls?.ios && (
+              <a
+                href={app.storeUrls.ios}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/90"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> iOS
+              </a>
+            )}
+            {app.storeUrls?.android && (
+              <a
+                href={app.storeUrls.android}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/90"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Android
+              </a>
+            )}
+            {!app.storeUrls?.ios && !app.storeUrls?.android && (
+              // No store URLs on record — fall back to the app's site
+              // (same fallback the feed card uses) so the CTA never vanishes.
+              <a
+                href={app.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/90"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> Get the app
+              </a>
+            )}
+          </div>
+        ) : (
+          <a
+            href={
+              app.platform === "ios"
+                ? (app.storeUrls?.ios ?? app.url)
+                : (app.storeUrls?.android ?? app.url)
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-foreground px-6 font-semibold text-background hover:bg-foreground/90"
+          >
+            <ExternalLink className="h-4 w-4" />
+            {app.platform === "ios" ? "App Store" : "Google Play"}
+          </a>
+        )}
       </div>
 
       <div className="mt-4">

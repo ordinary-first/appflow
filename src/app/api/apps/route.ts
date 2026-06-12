@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb, schema } from "@/db";
+import { APP_PLATFORMS } from "@/db/schema";
 import { getSessionUser } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
 
@@ -31,7 +32,13 @@ export async function GET(req: Request) {
       thumbnailUrl: schema.apps.thumbnailUrl,
     })
     .from(schema.apps)
-    .where(and(eq(schema.apps.status, "published"), inArray(schema.apps.id, ids)));
+    .where(
+      and(
+        // Unclaimed (curated) apps are public — anonymous saves must hydrate them.
+        inArray(schema.apps.status, ["published", "unclaimed"]),
+        inArray(schema.apps.id, ids)
+      )
+    );
   return NextResponse.json({ apps: rows });
 }
 
@@ -77,6 +84,22 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "invalid app url" }, { status: 400 });
   }
+
+  const rawPlatform = String(body.platform ?? "web");
+  const platform = (APP_PLATFORMS as readonly string[]).includes(rawPlatform)
+    ? (rawPlatform as typeof APP_PLATFORMS[number])
+    : "web";
+
+  // Validate store URLs for native platforms
+  const rawIos = body.storeUrlIos ? String(body.storeUrlIos).trim() : "";
+  const rawAndroid = body.storeUrlAndroid ? String(body.storeUrlAndroid).trim() : "";
+  const validateStoreUrl = (u: string) => {
+    try { return /^https?:/.test(new URL(u).protocol) ? u : ""; } catch { return ""; }
+  };
+  const iosUrl = validateStoreUrl(rawIos);
+  const androidUrl = validateStoreUrl(rawAndroid);
+  const storeUrls =
+    iosUrl || androidUrl ? { ios: iosUrl || undefined, android: androidUrl || undefined } : null;
 
   const demoVideoUrl = body.demoVideoUrl ? String(body.demoVideoUrl) : null;
   const youtubeUrl = body.youtubeUrl ? String(body.youtubeUrl) : null;
@@ -141,7 +164,9 @@ export async function POST(req: Request) {
     },
     guestModeAvailable: Boolean(body.guestModeAvailable),
     noLoginTrialAvailable: Boolean(body.noLoginTrialAvailable),
-    embeddable: body.embeddable === undefined ? true : Boolean(body.embeddable),
+    embeddable: platform === "web" ? (body.embeddable === undefined ? true : Boolean(body.embeddable)) : false,
+    platform,
+    storeUrls,
     status: "published",
     createdAt: now,
     updatedAt: now,

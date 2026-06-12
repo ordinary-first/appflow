@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Heart, Bookmark, Share2, MessageSquare, Play, Plus, Check } from "lucide-react";
+import { Heart, Bookmark, Share2, MessageSquare, Play, Plus, Check, ExternalLink } from "lucide-react";
 import { track } from "@/lib/track";
 import { youtubeVideoId, cn } from "@/lib/utils";
 import type { FeedItem } from "@/lib/types";
@@ -132,12 +132,66 @@ export function AppCard({
         </p>
         <p className="mt-1 text-xs text-muted-foreground/70">by {app.makerName}</p>
 
-        <Link
-          href={`/try/${app.id}`}
-          className="mt-4 inline-flex h-12 w-full max-w-xs items-center justify-center rounded-xl bg-foreground text-base font-semibold text-background transition hover:bg-foreground/90"
-        >
-          Try
-        </Link>
+        {app.platform === "web" ? (
+          <Link
+            href={`/try/${app.id}`}
+            className="mt-4 inline-flex h-12 w-full max-w-xs items-center justify-center rounded-xl bg-foreground text-base font-semibold text-background transition hover:bg-foreground/90"
+          >
+            Try
+          </Link>
+        ) : app.platform === "cross_platform" ? (
+          <div className="mt-4 flex w-full max-w-xs gap-2">
+            {app.storeUrls?.ios && (
+              <a
+                href={app.storeUrls.ios}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => track(app.id, "try_click")}
+                className="inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background transition hover:bg-foreground/90"
+              >
+                <ExternalLink className="h-4 w-4" /> App Store
+              </a>
+            )}
+            {app.storeUrls?.android && (
+              <a
+                href={app.storeUrls.android}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => track(app.id, "try_click")}
+                className="inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background transition hover:bg-foreground/90"
+              >
+                <ExternalLink className="h-4 w-4" /> Play
+              </a>
+            )}
+            {!app.storeUrls?.ios && !app.storeUrls?.android && (
+              <a
+                href={app.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => track(app.id, "try_click")}
+                className="inline-flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-foreground text-base font-semibold text-background transition hover:bg-foreground/90"
+              >
+                <ExternalLink className="h-4 w-4" /> Get the app
+              </a>
+            )}
+          </div>
+        ) : (
+          // ios or android — single store link
+          <a
+            href={
+              app.platform === "ios"
+                ? (app.storeUrls?.ios ?? app.url)
+                : (app.storeUrls?.android ?? app.url)
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => track(app.id, "try_click")}
+            className="mt-4 inline-flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-foreground text-base font-semibold text-background transition hover:bg-foreground/90"
+          >
+            <ExternalLink className="h-4 w-4" />
+            {app.platform === "ios" ? "Get on App Store" : "Get on Google Play"}
+          </a>
+        )}
       </div>
 
       {/* ---- right action rail ---- */}

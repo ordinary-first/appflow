@@ -80,6 +80,10 @@ export const verification = sqliteTable("verification", {
 // ---------------------------------------------------------------------------
 
 export type MakerLinks = { website?: string; x?: string; github?: string };
+export type StoreUrls = { ios?: string; android?: string };
+
+export const APP_PLATFORMS = ["web", "ios", "android", "cross_platform"] as const;
+export type AppPlatform = (typeof APP_PLATFORMS)[number];
 
 export const apps = sqliteTable(
   "apps",
@@ -113,6 +117,13 @@ export const apps = sqliteTable(
     embeddable: integer("embeddable", { mode: "boolean" })
       .notNull()
       .default(true),
+    /** 'web' opens the in-app /try iframe; native platforms link out to their
+     * store listing. cross_platform = iOS + Android (both store URLs needed). */
+    platform: text("platform", { enum: APP_PLATFORMS })
+      .notNull()
+      .default("web"),
+    /** App Store / Play Store URLs for native and cross-platform apps. */
+    storeUrls: text("store_urls", { mode: "json" }).$type<StoreUrls>(),
     /** 'unclaimed' = curated app whose maker hasn't claimed it yet
      * (makerId = GLIM_SYSTEM_USER_ID until claimed). Feed shows
      * unclaimed + published; hidden is excluded everywhere. */

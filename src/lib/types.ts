@@ -20,6 +20,8 @@ export type FeedItem = {
   iconUrl: string | null;
   makerName: string;
   embeddable: boolean;
+  platform: "web" | "ios" | "android" | "cross_platform";
+  storeUrls: { ios?: string; android?: string } | null;
   likes: number;
   saves: number;
   feedbackCount: number;

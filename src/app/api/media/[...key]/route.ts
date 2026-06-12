@@ -10,7 +10,9 @@ export async function GET(
 ) {
   const { key: parts } = await ctx.params;
   const key = parts.join("/");
-  if (!key.startsWith("uploads/")) {
+  // 'uploads/' = maker-submitted media; 'curated/' = operator-seeded media
+  // for curated (unclaimed) apps.
+  if (!key.startsWith("uploads/") && !key.startsWith("curated/")) {
     return new Response("not found", { status: 404 });
   }
 

@@ -36,6 +36,7 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [platform, setPlatform] = useState<"web" | "ios" | "android" | "cross_platform">("web");
   const [mediaMode, setMediaMode] = useState<"video" | "images">("video");
   const [video, setVideo] = useState<File | null>(null);
   const [images, setImages] = useState<File[]>([]);
@@ -93,6 +94,9 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
           youtubeUrl: (mediaMode === "video" && youtubeUrl) || undefined,
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
           thumbnailUrl,
+          platform,
+          storeUrlIos: fd.get("storeUrlIos") || undefined,
+          storeUrlAndroid: fd.get("storeUrlAndroid") || undefined,
           makerName: fd.get("makerName") || undefined,
           makerWebsite: fd.get("makerWebsite") || undefined,
           makerX: fd.get("makerX") || undefined,
@@ -122,6 +126,47 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
       <Field label="App URL *">
         <Input name="url" type="url" required placeholder="https://yourapp.com" />
       </Field>
+
+      {/* ---- platform ---- */}
+      <div className="space-y-3 rounded-xl border border-border bg-muted p-4">
+        <Label>Platform *</Label>
+        <div className="flex gap-2">
+          {(
+            [
+              ["web", "🌐 Web"],
+              ["ios", "🍎 iOS"],
+              ["android", "🤖 Android"],
+              ["cross_platform", "📱 Both"],
+            ] as const
+          ).map(([val, label]) => (
+            <MediaModeButton
+              key={val}
+              active={platform === val}
+              onClick={() => setPlatform(val)}
+              label={label}
+            />
+          ))}
+        </div>
+        {(platform === "ios" || platform === "cross_platform") && (
+          <Field label="App Store URL">
+            <Input
+              name="storeUrlIos"
+              type="url"
+              placeholder="https://apps.apple.com/app/..."
+            />
+          </Field>
+        )}
+        {(platform === "android" || platform === "cross_platform") && (
+          <Field label="Play Store URL">
+            <Input
+              name="storeUrlAndroid"
+              type="url"
+              placeholder="https://play.google.com/store/apps/..."
+            />
+          </Field>
+        )}
+      </div>
+
       <Field label="Tagline (one line) *">
         <Input
           name="tagline"
@@ -231,7 +276,9 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
       <div className="space-y-2 rounded-xl border border-border bg-muted p-4 text-sm">
         <Check name="noLoginTrialAvailable" label="Usable for 30+ seconds without login (boosts your ranking)" />
         <Check name="guestModeAvailable" label="Has a guest mode" />
-        <Check name="embeddable" label="Can be embedded in an iframe" defaultChecked />
+        {platform === "web" && (
+          <Check name="embeddable" label="Can be embedded in an iframe" defaultChecked />
+        )}
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}

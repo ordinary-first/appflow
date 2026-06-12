@@ -63,6 +63,8 @@ export async function GET(req: Request) {
       iconUrl: app.iconUrl,
       makerName: app.makerName,
       embeddable: app.embeddable,
+      platform: app.platform,
+      storeUrls: app.storeUrls ?? null,
       likes: stats?.likes ?? 0,
       saves: stats?.saves ?? 0,
       feedbackCount: stats?.feedbackCount ?? 0,
