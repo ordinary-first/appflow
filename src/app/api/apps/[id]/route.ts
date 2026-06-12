@@ -78,5 +78,14 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   if (res.length === 0) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+
+  // follows.targetId is polymorphic (no FK) — clean up app follows here or
+  // they linger as phantom rows in follow lists and counts.
+  await db
+    .delete(schema.follows)
+    .where(
+      and(eq(schema.follows.targetType, "app"), eq(schema.follows.targetId, id))
+    );
+
   return NextResponse.json({ ok: true });
 }

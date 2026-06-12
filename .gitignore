@@ -18,3 +18,9 @@ out/
 *.log
 tsconfig.tsbuildinfo
 next-env.d.ts
+
+# QA/session artifacts
+/*.png
+.playwright-mcp/
+# local-only demo seed (fake engagement data — never commit/apply to prod)
+seed-demo.sql

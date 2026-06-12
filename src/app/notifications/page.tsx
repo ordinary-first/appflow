@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { Bell, MessageSquare, Reply, UserPlus } from "lucide-react";
 import { getDb, schema } from "@/db";
 import { getSessionUser } from "@/lib/auth";
@@ -55,7 +55,8 @@ export default async function NotificationsPage() {
     .orderBy(desc(schema.notifications.createdAt))
     .limit(50);
 
-  // Resolve post → app slug for clickable rows (small set, one query).
+  // Resolve post → app slug for clickable rows — scoped with inArray, never
+  // an unbounded posts×apps join (D1 bills per row read).
   const postIds = [...new Set(rows.map((r) => r.postId).filter(Boolean))] as string[];
   const postApps = new Map<string, { slug: string; name: string }>();
   if (postIds.length > 0) {
@@ -66,9 +67,10 @@ export default async function NotificationsPage() {
         name: schema.apps.name,
       })
       .from(schema.posts)
-      .innerJoin(schema.apps, eq(schema.posts.appId, schema.apps.id));
+      .innerJoin(schema.apps, eq(schema.posts.appId, schema.apps.id))
+      .where(inArray(schema.posts.id, postIds));
     for (const a of apps) {
-      if (postIds.includes(a.postId)) postApps.set(a.postId, a);
+      postApps.set(a.postId, a);
     }
   }
 

@@ -4,7 +4,15 @@ import * as React from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Lightweight dialog (no portal lib): fixed overlay + centered panel. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Lightweight dialog (no portal lib): fixed overlay + centered panel.
+ * Accessibility: focus moves into the panel on open, Tab is trapped inside,
+ * focus restores to the opener on close, and the body scroll is locked so
+ * the feed can't move behind the overlay.
+ */
 export function Dialog({
   open,
   onClose,
@@ -16,11 +24,42 @@ export function Dialog({
   children: React.ReactNode;
   className?: string;
 }) {
+  const panelRef = React.useRef<HTMLDivElement>(null);
+
   React.useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const opener = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    const focusables = panel?.querySelectorAll<HTMLElement>(FOCUSABLE);
+    focusables?.[0]?.focus();
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panel) return;
+      const items = panel.querySelectorAll<HTMLElement>(FOCUSABLE);
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      opener?.focus?.();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -35,6 +74,7 @@ export function Dialog({
         onClick={onClose}
       />
       <div
+        ref={panelRef}
         className={cn(
           "relative w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-border bg-muted p-5 shadow-2xl",
           className

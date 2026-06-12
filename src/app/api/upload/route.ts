@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { getEnv } from "@/db";
 import { getSessionUser } from "@/lib/auth";
 
-const MAX_BYTES = 100 * 1024 * 1024; // 100MB — 15s demo clips are far smaller
+// 25MB cap: formData() buffers the whole body in Worker memory (~128MB
+// isolate limit), so a few concurrent 100MB uploads could OOM the isolate.
+// Real 15s demo clips are well under this. Raising the cap requires the
+// R2 presigned-URL direct upload (TODOS.md).
+const MAX_BYTES = 25 * 1024 * 1024;
 const ALLOWED = ["video/mp4", "video/webm", "image/png", "image/jpeg", "image/webp"];
 
 /**
@@ -28,7 +32,7 @@ export async function POST(req: Request) {
     );
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "file too large (max 100MB)" }, { status: 400 });
+    return NextResponse.json({ error: "file too large (max 25MB)" }, { status: 400 });
   }
 
   const ext = file.type.split("/")[1] ?? "bin";

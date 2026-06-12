@@ -205,7 +205,7 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
   );
 
   const failToast = () => {
-    setToast("잠시 후 다시 시도해주세요");
+    setToast("Please try again in a moment");
     setTimeout(() => setToast(null), 1800);
   };
 

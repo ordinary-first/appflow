@@ -225,25 +225,32 @@ export function AppCard({
               </span>
             )}
           </Link>
+          {/* p-3 -m-3 inflates the hit area to ~44px without growing the
+              visual badge — mis-taps were landing on the avatar link. */}
           <button
             onClick={onFollow}
             aria-label={followed ? "Unfollow" : "Follow"}
-            className={cn(
-              "absolute -bottom-2 left-1/2 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full transition cursor-pointer",
-              followed ? "bg-muted text-foreground" : "bg-red-500 text-white"
-            )}
+            className="absolute -bottom-2 left-1/2 -translate-x-1/2 p-3 -m-3 cursor-pointer"
           >
-            {followed ? (
-              <Check className="h-3 w-3" strokeWidth={3} />
-            ) : (
-              <Plus className="h-3 w-3" strokeWidth={3} />
-            )}
+            <span
+              className={cn(
+                "flex h-5 w-5 items-center justify-center rounded-full transition",
+                followed ? "bg-muted text-foreground" : "bg-red-500 text-white"
+              )}
+            >
+              {followed ? (
+                <Check className="h-3 w-3" strokeWidth={3} />
+              ) : (
+                <Plus className="h-3 w-3" strokeWidth={3} />
+              )}
+            </span>
           </button>
         </div>
         {/* Server count already includes my own like/save (SSR flags) — the
             optimistic delta only applies relative to that initial state. */}
         <RailButton
           label={String(app.likes + (liked ? 1 : 0) - (app.likedByMe ? 1 : 0))}
+          ariaLabel={liked ? "Unlike" : "Like"}
           onClick={onLike}
           icon={
             <Heart
@@ -253,6 +260,7 @@ export function AppCard({
         />
         <RailButton
           label={String(app.saves + (saved ? 1 : 0) - (app.savedByMe ? 1 : 0))}
+          ariaLabel={saved ? "Remove from saved" : "Save"}
           onClick={onSave}
           icon={
             <Bookmark
@@ -262,6 +270,7 @@ export function AppCard({
         />
         <RailButton
           label={String(app.commentCount)}
+          ariaLabel="Comments"
           onClick={onComments}
           icon={<MessageSquare className="h-6 w-6" />}
         />
@@ -400,16 +409,20 @@ function RailButton({
   icon,
   label,
   onClick,
+  ariaLabel,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
+  /** Action name for screen readers — the visible label is often a bare count. */
+  ariaLabel?: string;
 }) {
   // Bare icons on a drop shadow (no pill chrome) — TikTok-style minimal rail.
   // p-1.5 keeps the touch target ~36px despite the smaller visual footprint.
   return (
     <button
       onClick={onClick}
+      aria-label={ariaLabel ?? label}
       className="flex flex-col items-center gap-0.5 text-white transition hover:opacity-80 cursor-pointer"
     >
       <span className="p-1.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]">{icon}</span>

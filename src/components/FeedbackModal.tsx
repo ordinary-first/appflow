@@ -59,14 +59,14 @@ export function FeedbackModal({
         }),
       });
       if (!res.ok) {
-        setError("전송에 실패했어요. 잠시 후 다시 시도해주세요.");
+        setError("Couldn't send — please try again in a moment.");
         return; // keep the modal open — feedback must never be silently lost
       }
       reset();
       onSubmitted?.();
       onClose();
     } catch {
-      setError("네트워크 오류예요. 연결을 확인하고 다시 시도해주세요.");
+      setError("Network error — check your connection and try again.");
     } finally {
       setBusy(false);
     }

@@ -3,6 +3,19 @@ import { and, eq } from "drizzle-orm";
 import { getDb, getEnv, schema } from "@/db";
 import { GLIM_SYSTEM_USER_ID } from "@/db/schema";
 
+async function digestEquals(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [da, db_] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const ua = new Uint8Array(da);
+  const ub = new Uint8Array(db_);
+  let diff = 0;
+  for (let i = 0; i < ua.length; i++) diff |= ua[i] ^ ub[i];
+  return diff === 0;
+}
+
 /**
  * POST /api/claims/approve — operator-only (x-admin-token header must match
  * the CLAIM_ADMIN_TOKEN secret). Body: { claimId, approve?: boolean }.
@@ -20,7 +33,10 @@ import { GLIM_SYSTEM_USER_ID } from "@/db/schema";
 export async function POST(req: Request) {
   const env = (await getEnv()) as { CLAIM_ADMIN_TOKEN?: string };
   const token = env.CLAIM_ADMIN_TOKEN;
-  if (!token || req.headers.get("x-admin-token") !== token) {
+  const given = req.headers.get("x-admin-token");
+  // Constant-time compare via SHA-256 digests — direct string !== leaks
+  // timing on this ownership-transfer secret. Fails closed when unset.
+  if (!token || !given || !(await digestEquals(given, token))) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

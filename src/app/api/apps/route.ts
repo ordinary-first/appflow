@@ -101,12 +101,26 @@ export async function POST(req: Request) {
   const storeUrls =
     iosUrl || androidUrl ? { ios: iosUrl || undefined, android: androidUrl || undefined } : null;
 
-  const demoVideoUrl = body.demoVideoUrl ? String(body.demoVideoUrl) : null;
-  const youtubeUrl = body.youtubeUrl ? String(body.youtubeUrl) : null;
+  // Every stored URL goes through the same protocol check — these render as
+  // <a href>/<video src>/<img src>, so a javascript: value would be stored
+  // XSS. Site-relative paths (R2 media: /api/media/…) are allowed.
+  const safeUrl = (raw: unknown): string | null => {
+    const u = String(raw ?? "").trim();
+    if (!u) return null;
+    if (u.startsWith("/") && !u.startsWith("//")) return u;
+    try {
+      return /^https?:$/.test(new URL(u).protocol) ? u : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const demoVideoUrl = safeUrl(body.demoVideoUrl);
+  const youtubeUrl = safeUrl(body.youtubeUrl);
   const imageUrls = Array.isArray(body.imageUrls)
     ? (body.imageUrls as unknown[])
-        .map((u) => String(u).trim())
-        .filter(Boolean)
+        .map((u) => safeUrl(u))
+        .filter((u): u is string => Boolean(u))
         .slice(0, 5)
     : [];
   // Per-image captions, index-aligned with imageUrls. Empty strings are kept
@@ -146,9 +160,8 @@ export async function POST(req: Request) {
     ? (body.tags as unknown[]).map((t) => String(t).trim()).filter(Boolean).slice(0, 8)
     : [];
 
-  const thumbnailUrl = body.thumbnailUrl
-    ? String(body.thumbnailUrl)
-    : imageUrls[0] ?? null; // slideshow: first screenshot doubles as thumbnail
+  const thumbnailUrl =
+    safeUrl(body.thumbnailUrl) ?? imageUrls[0] ?? null; // slideshow: first screenshot doubles as thumbnail
 
   await db.insert(schema.apps).values({
     id,
@@ -165,9 +178,9 @@ export async function POST(req: Request) {
     makerId: user.id, // ownership comes from the verified session, never the body
     makerName: body.makerName ? String(body.makerName).slice(0, 60) : user.name,
     makerLinks: {
-      website: body.makerWebsite ? String(body.makerWebsite) : undefined,
-      x: body.makerX ? String(body.makerX) : undefined,
-      github: body.makerGithub ? String(body.makerGithub) : undefined,
+      website: safeUrl(body.makerWebsite) ?? undefined,
+      x: safeUrl(body.makerX) ?? undefined,
+      github: safeUrl(body.makerGithub) ?? undefined,
     },
     guestModeAvailable: Boolean(body.guestModeAvailable),
     noLoginTrialAvailable: Boolean(body.noLoginTrialAvailable),
