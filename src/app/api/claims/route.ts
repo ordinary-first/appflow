@@ -24,6 +24,10 @@ export async function POST(req: Request) {
 
   const appId = String(body.appId ?? "").trim();
   const proofUrl = body.proofUrl ? String(body.proofUrl).trim().slice(0, 500) : null;
+  // Outreach attribution — the DM → claim conversion KPI's measurement basis.
+  const utmSource = body.utmSource
+    ? String(body.utmSource).trim().slice(0, 60) || null
+    : null;
   if (!appId) {
     return NextResponse.json({ error: "appId required" }, { status: 400 });
   }
@@ -65,6 +69,7 @@ export async function POST(req: Request) {
     userId: user.id,
     status: "pending",
     proofUrl,
+    utmSource,
     createdAt: new Date(),
   });
 

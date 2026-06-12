@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Search as SearchIcon } from "lucide-react";
 import { AppCard } from "./AppCard";
 import { BottomNav } from "@/components/BottomNav";
 import { CommentsSheet } from "@/components/CommentsSheet";
@@ -342,6 +343,13 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
           <span className="absolute left-0 text-xl font-extrabold tracking-tighter text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
             Glim
           </span>
+          <a
+            href="/search"
+            aria-label="Search apps"
+            className="pointer-events-auto absolute right-0 p-1 text-white/90 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)] transition hover:text-white"
+          >
+            <SearchIcon className="h-5 w-5" />
+          </a>
           <nav className="pointer-events-auto flex items-center gap-5 text-[15px] font-semibold drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
             <TopTab active={tab === "foryou"} onClick={() => setTab("foryou")}>
               For You

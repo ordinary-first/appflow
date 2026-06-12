@@ -4,7 +4,9 @@ import { ArrowLeft, Plus } from "lucide-react";
 import { getDb, schema } from "@/db";
 import { getSessionUser } from "@/lib/auth";
 import { getAppStats, type AppStats } from "@/lib/feed";
+import { getDailyTrend, rollupDailyStats } from "@/lib/stats";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { BadgeEmbed } from "@/components/BadgeEmbed";
 import { UserMenu } from "@/components/UserMenu";
 import { AppActions } from "@/components/AppActions";
 
@@ -54,6 +56,16 @@ export default async function DashboardPage() {
   const appIds = myApps.map((a) => a.id);
   // Scoped to this maker's apps — no full-table interactions aggregate.
   const statsMap = await getAppStats(appIds);
+  // E2: lazy daily rollup — recompute missing days, then read the trend.
+  // A failed rollup serves yesterday's rows instead of killing the page.
+  let trendMap = new Map<string, { date: string; viewers: number; triers: number }[]>();
+  try {
+    await rollupDailyStats(appIds);
+    trendMap = await getDailyTrend(appIds, 14);
+  } catch (err) {
+    console.error("[dashboard] daily rollup failed — serving stale trend", err);
+    trendMap = await getDailyTrend(appIds, 14).catch(() => trendMap);
+  }
   const comments =
     appIds.length > 0
       ? await db
@@ -115,6 +127,7 @@ export default async function DashboardPage() {
                 status: app.status,
               }}
               stats={s}
+              trend={trendMap.get(app.id) ?? []}
               comments={appComments.map((c) => ({
                 id: c.id,
                 comment: c.comment!,
@@ -131,15 +144,24 @@ export default async function DashboardPage() {
 function AppPanel({
   app,
   stats,
+  trend,
   comments,
 }: {
   app: { id: string; name: string; slug: string; tagline: string; status: AppStatus };
   stats?: AppStats;
+  trend: { date: string; viewers: number; triers: number }[];
   comments: { id: string; comment: string; rating: string | null }[];
 }) {
   const views = stats?.views ?? 0;
   const tryClicks = stats?.tryClicks ?? 0;
   const ctr = views > 0 ? Math.round((tryClicks / views) * 100) : 0;
+
+  // Week-over-week: last 7 stored days vs the 7 before them.
+  const sum = (rows: typeof trend, k: "viewers" | "triers") =>
+    rows.reduce((a, r) => a + r[k], 0);
+  const last7 = trend.slice(-7);
+  const prev7 = trend.slice(-14, -7);
+  const wow = (k: "viewers" | "triers") => sum(last7, k) - sum(prev7, k);
 
   const frictionEntries = FRICTION_TAGS.map(
     (t) => [t, stats?.topFeedbackTags[t] ?? 0] as const
@@ -179,6 +201,33 @@ function AppPanel({
         <Stat label="Shares" value={stats?.shares ?? 0} />
         <Stat label="Try returns" value={stats?.tryReturns ?? 0} />
       </div>
+
+      {trend.length > 0 && (
+        <div className="mt-5">
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Last 14 days — unique people
+            </p>
+            {prev7.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                vs prev week:{" "}
+                <Delta n={wow("viewers")} /> watched · <Delta n={wow("triers")} /> tried
+              </p>
+            )}
+          </div>
+          <TrendBars trend={trend} />
+          <p className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-sm bg-foreground/70" /> watched
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-sm bg-emerald-400" /> tried
+            </span>
+          </p>
+        </div>
+      )}
+
+      <BadgeEmbed slug={app.slug} />
 
       {frictionTotal > 0 && (
         <div className="mt-5">
@@ -228,6 +277,44 @@ function AppPanel({
         </div>
       )}
     </section>
+  );
+}
+
+function Delta({ n }: { n: number }) {
+  if (n === 0) return <span>±0</span>;
+  return n > 0 ? (
+    <span className="text-emerald-400">▲{n}</span>
+  ) : (
+    <span className="text-red-400">▼{Math.abs(n)}</span>
+  );
+}
+
+/** Server-rendered grouped bar chart — no chart lib, just divs. */
+function TrendBars({
+  trend,
+}: {
+  trend: { date: string; viewers: number; triers: number }[];
+}) {
+  const max = Math.max(1, ...trend.map((d) => d.viewers));
+  return (
+    <div className="mt-2 flex h-20 items-end gap-1">
+      {trend.map((d) => (
+        <div
+          key={d.date}
+          className="flex flex-1 items-end justify-center gap-px"
+          title={`${d.date}: ${d.viewers} watched · ${d.triers} tried`}
+        >
+          <div
+            className="w-1/2 rounded-t-sm bg-foreground/70"
+            style={{ height: `${Math.max(3, (d.viewers / max) * 100)}%` }}
+          />
+          <div
+            className="w-1/2 rounded-t-sm bg-emerald-400"
+            style={{ height: `${Math.max(d.triers > 0 ? 3 : 0, (d.triers / max) * 100)}%` }}
+          />
+        </div>
+      ))}
+    </div>
   );
 }
 

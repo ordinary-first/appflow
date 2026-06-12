@@ -27,6 +27,21 @@ export async function POST(req: Request) {
   const anonymousId = anon.anonId;
 
   const db = await getDb();
+
+  // Daily-rollup invalidation: re-owning interactions changes their deduped
+  // identity (a:x → u:y), so affected apps' app_daily_stats rows are deleted
+  // and the next dashboard load recomputes them cleanly (the one documented
+  // exception to "past days are immutable").
+  const touched = await db
+    .selectDistinct({ appId: schema.interactions.appId })
+    .from(schema.interactions)
+    .where(
+      and(
+        eq(schema.interactions.anonymousId, anonymousId),
+        isNull(schema.interactions.userId)
+      )
+    );
+
   await db
     .update(schema.interactions)
     .set({ userId: user.id })
@@ -36,6 +51,13 @@ export async function POST(req: Request) {
         isNull(schema.interactions.userId)
       )
     );
+
+  if (touched.length > 0) {
+    await db.run(sql`
+      DELETE FROM app_daily_stats
+      WHERE app_id IN (${sql.join(touched.map((t) => sql`${t.appId}`), sql`, `)})
+    `);
+  }
   await db
     .update(schema.feedback)
     .set({ userId: user.id })

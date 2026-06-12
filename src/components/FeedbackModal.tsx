@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSession } from "@/lib/auth-client";
 import type { FeedbackTag } from "@/db/schema";
 import { cn } from "@/lib/utils";
 
@@ -27,10 +28,16 @@ export function FeedbackModal({
   onClose: () => void;
   onSubmitted?: () => void;
 }) {
+  const { data: session } = useSession();
   const [selected, setSelected] = useState<FeedbackTag[]>([]);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 'convert' = post-submit one-tap "publish as review" step (E3): the
+  // feedback is already saved; the user explicitly opts into making the
+  // comment a PUBLIC review post. Eligibility: logged in, positive tags,
+  // comment ≥ 20 chars.
+  const [phase, setPhase] = useState<"form" | "convert">("form");
 
   const toggle = (tag: FeedbackTag) =>
     setSelected((s) =>
@@ -41,6 +48,13 @@ export function FeedbackModal({
     setSelected([]);
     setComment("");
     setError(null);
+    setPhase("form");
+  };
+
+  const finish = () => {
+    reset();
+    onSubmitted?.();
+    onClose();
   };
 
   const submit = async () => {
@@ -62,15 +76,68 @@ export function FeedbackModal({
         setError("Couldn't send — please try again in a moment.");
         return; // keep the modal open — feedback must never be silently lost
       }
-      reset();
-      onSubmitted?.();
-      onClose();
+      const positive = selected.some((t) => t === "useful" || t === "interesting");
+      if (session?.user && positive && comment.trim().length >= 20) {
+        setPhase("convert"); // feedback saved — offer the public-review step
+        return;
+      }
+      finish();
     } catch {
       setError("Network error — check your connection and try again.");
     } finally {
       setBusy(false);
     }
   };
+
+  const publishReview = async () => {
+    if (!app || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appId: app.id, body: comment.trim() }),
+      });
+      if (!res.ok) {
+        setError("Couldn't publish — your feedback is already saved though.");
+        return;
+      }
+      finish();
+    } catch {
+      setError("Network error — your feedback is already saved though.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (phase === "convert") {
+    return (
+      <Dialog open={!!app} onClose={finish}>
+        <h2 className="text-lg font-semibold">Share it as a public review?</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Your feedback is saved. Post this line publicly on {app?.name}&apos;s
+          page, credited to you — you can delete it anytime.
+        </p>
+        <blockquote className="mt-3 rounded-xl border border-border bg-background px-4 py-3 text-sm">
+          “{comment.trim()}”
+        </blockquote>
+        {error && (
+          <p className="mt-2 text-sm text-red-400" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="mt-4 flex gap-2">
+          <Button className="flex-1" disabled={busy} onClick={publishReview}>
+            {busy ? "Publishing…" : "Post as review"}
+          </Button>
+          <Button variant="ghost" onClick={finish}>
+            No thanks
+          </Button>
+        </div>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog

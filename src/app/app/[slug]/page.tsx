@@ -218,7 +218,13 @@ export default async function AppDetailPage({
         />
       </div>
       {app.status === "unclaimed" && (
-        <ClaimButton appId={app.id} appSlug={app.slug} />
+        <ClaimButton
+          appId={app.id}
+          appSlug={app.slug}
+          // Deduped identities that viewed or tried — the "already reached N
+          // people" line a maker sees when arriving from an outreach DM.
+          reach={(stats?.views ?? 0) + (stats?.tryClicks ?? 0)}
+        />
       )}
 
       {/* 6. Description (collapsible) */}

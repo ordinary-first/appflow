@@ -11,7 +11,17 @@ import { Input } from "@/components/ui/input";
  * "Did you make this app?" CTA shown on unclaimed (curated) app pages.
  * Logged-in makers submit a proof URL; the operator approves manually (v1).
  */
-export function ClaimButton({ appId, appSlug }: { appId: string; appSlug: string }) {
+export function ClaimButton({
+  appId,
+  appSlug,
+  reach = 0,
+}: {
+  appId: string;
+  appSlug: string;
+  /** Deduped people-reached count — the number a maker opening an outreach
+   * DM sees first. Real data sells the claim better than any copy. */
+  reach?: number;
+}) {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const [proofUrl, setProofUrl] = useState("");
@@ -20,10 +30,18 @@ export function ClaimButton({ appId, appSlug }: { appId: string; appSlug: string
   const submit = async () => {
     setState("busy");
     try {
+      // Outreach attribution: ?utm_source= survives the login redirect via
+      // the page URL — read at submit time, stored on the claim request.
+      const utmSource =
+        new URLSearchParams(window.location.search).get("utm_source") ?? undefined;
       const res = await fetch("/api/claims", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appId, proofUrl: proofUrl.trim() || undefined }),
+        body: JSON.stringify({
+          appId,
+          proofUrl: proofUrl.trim() || undefined,
+          utmSource,
+        }),
       });
       setState(res.ok ? "done" : "error");
     } catch {
@@ -49,8 +67,18 @@ export function ClaimButton({ appId, appSlug }: { appId: string; appSlug: string
     <div className="mt-6 rounded-2xl border border-dashed border-border p-5">
       <p className="text-sm font-medium">Did you make this app?</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        This app was curated by Glim. Claim it to get your maker profile,
-        followers and feedback.
+        {reach > 0 ? (
+          <>
+            It has already reached{" "}
+            <span className="font-semibold text-foreground">{reach} people</span>{" "}
+            on Glim. Claim it to get your maker profile, followers and feedback.
+          </>
+        ) : (
+          <>
+            This app was curated by Glim. Claim it to get your maker profile,
+            followers and feedback.
+          </>
+        )}
       </p>
 
       {!session?.user ? (

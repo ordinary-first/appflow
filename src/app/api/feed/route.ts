@@ -32,6 +32,7 @@ export async function GET(req: Request) {
     .innerJoin(schema.apps, eq(schema.posts.appId, schema.apps.id))
     .where(
       sql`${schema.posts.status} = 'published'
+        AND ${schema.posts.mediaType} != 'text'
         AND ${schema.apps.status} IN ('published', 'unclaimed')
         AND (
           ${schema.posts.appId} IN (
@@ -62,7 +63,8 @@ export async function GET(req: Request) {
       tagline: post.caption ?? app.tagline,
       category: app.category,
       url: app.url,
-      mediaType: post.mediaType,
+      // 'text' posts are excluded in the WHERE above — safe to narrow.
+      mediaType: post.mediaType as "video" | "images",
       demoVideoUrl: post.videoUrl,
       youtubeUrl: app.youtubeUrl,
       imageUrls: post.imageUrls ?? null,

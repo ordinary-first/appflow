@@ -1,0 +1,1 @@
+ALTER TABLE `claim_requests` ADD `utm_source` text;

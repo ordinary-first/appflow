@@ -5,6 +5,7 @@ import {
   integer,
   index,
   uniqueIndex,
+  primaryKey,
 } from "drizzle-orm/sqlite-core";
 
 // ---------------------------------------------------------------------------
@@ -157,7 +158,9 @@ export const apps = sqliteTable(
 export const POST_TYPES = ["official", "review"] as const;
 export type PostType = (typeof POST_TYPES)[number];
 
-export const MEDIA_TYPES = ["video", "images"] as const;
+/** 'text' = converted feedback reviews — app-page review tab + following
+ * feed only, never the For You video feed (no media to autoplay). */
+export const MEDIA_TYPES = ["video", "images", "text"] as const;
 export type MediaType = (typeof MEDIA_TYPES)[number];
 
 /** A post is one feed card: a maker update, feature demo, or user review.
@@ -330,6 +333,9 @@ export const INTERACTION_TYPES = [
   "try_click",
   "try_return",
   "feedback_submit",
+  /** Embed badge loads (Referer in metadata) — analytics only; the App
+   * Score allowlist in lib/feed.ts deliberately excludes this. */
+  "badge_view",
 ] as const;
 export type InteractionType = (typeof INTERACTION_TYPES)[number];
 
@@ -402,6 +408,9 @@ export const claimRequests = sqliteTable(
       .notNull()
       .default("pending"),
     proofUrl: text("proof_url"),
+    /** Outreach attribution (?utm_source= on the claim landing) — the
+     * DM → claim conversion KPI's measurement basis. */
+    utmSource: text("utm_source"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [
@@ -419,3 +428,27 @@ export type FollowRow = typeof follows.$inferSelect;
 export type CommentRow = typeof comments.$inferSelect;
 export type SaveRow = typeof saves.$inferSelect;
 export type NotificationRow = typeof notifications.$inferSelect;
+
+/**
+ * Daily per-app rollup of deduped interaction identities — the maker
+ * dashboard's trend source (E2). Filled lazily: on dashboard load, every
+ * missing day from MAX(date) through today is recomputed as a FULL day and
+ * upserted (ON CONFLICT DO UPDATE, never REPLACE — deduped COUNT DISTINCT
+ * is not additive across windows, so increments would double-count). Past
+ * days are immutable except when /api/merge re-owns identities, which
+ * deletes the affected apps' rows to force a clean recompute.
+ * date is canonical UTC YYYY-MM-DD text (timezone-boundary safe).
+ */
+export const appDailyStats = sqliteTable(
+  "app_daily_stats",
+  {
+    appId: text("app_id")
+      .notNull()
+      .references(() => apps.id, { onDelete: "cascade" }),
+    date: text("date").notNull(),
+    viewers: integer("viewers").notNull().default(0),
+    triers: integer("triers").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.appId, t.date] })]
+);
+export type AppDailyStatsRow = typeof appDailyStats.$inferSelect;

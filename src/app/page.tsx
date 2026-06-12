@@ -26,7 +26,8 @@ export default async function HomePage() {
       tagline: post.caption ?? app.tagline,
       category: app.category,
       url: app.url,
-      mediaType: post.mediaType,
+      // 'text' posts are excluded in getFeedPosts' WHERE — safe to narrow.
+      mediaType: post.mediaType as "video" | "images",
       demoVideoUrl: post.videoUrl,
       youtubeUrl: app.youtubeUrl,
       imageUrls: post.imageUrls ?? null,

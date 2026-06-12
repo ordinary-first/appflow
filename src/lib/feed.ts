@@ -212,7 +212,9 @@ export async function getFeedPosts(
     .from(schema.posts)
     .innerJoin(schema.apps, eq(schema.posts.appId, schema.apps.id))
     .where(
-      sql`${schema.posts.status} = 'published' AND ${schema.apps.status} IN ('published', 'unclaimed')`
+      // mediaType 'text' (converted feedback reviews) stays out of the
+      // For You video feed — app-page review tab + following feed only.
+      sql`${schema.posts.status} = 'published' AND ${schema.posts.mediaType} != 'text' AND ${schema.apps.status} IN ('published', 'unclaimed')`
     )
     .orderBy(sql`${schema.posts.createdAt} desc`)
     // Candidate pool cap: the mix is built from the newest 200 posts, so a

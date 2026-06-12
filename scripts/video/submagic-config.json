@@ -1,0 +1,65 @@
+{
+  "project": "glim-demo-30s",
+  "format": {
+    "aspectRatio": "9:16",
+    "resolution": {
+      "width": 1080,
+      "height": 1920
+    },
+    "fps": 60
+  },
+  "style": {
+    "fontFamily": "Inter",
+    "fontWeight": "bold",
+    "fontColor": "#FFFFFF",
+    "fontSize": 64,
+    "strokeColor": "#000000",
+    "strokeWidth": 5,
+    "alignment": "center",
+    "position": "lower-third",
+    "backgroundColor": "rgba(0,0,0,0.18)",
+    "safeMarginPercent": 8
+  },
+  "captions": [
+    {
+      "start": "00:00.000",
+      "end": "00:03.000",
+      "text": "48hrs. Built an app. Zero users."
+    },
+    {
+      "start": "00:03.000",
+      "end": "00:07.000",
+      "text": "Shipping was easy. Distribution was not."
+    },
+    {
+      "start": "00:07.000",
+      "end": "00:12.000",
+      "text": "Glim is a TikTok-style feed for vibe-coded apps."
+    },
+    {
+      "start": "00:12.000",
+      "end": "00:18.000",
+      "text": "Tap a card. Try the app instantly."
+    },
+    {
+      "start": "00:18.000",
+      "end": "00:23.000",
+      "text": "82 apps already listed."
+    },
+    {
+      "start": "00:23.000",
+      "end": "00:27.000",
+      "text": "Built with Lovable / Cursor / Claude? Get real users."
+    },
+    {
+      "start": "00:27.000",
+      "end": "00:30.000",
+      "text": "glim.ordinaryindividuality.workers.dev"
+    }
+  ],
+  "export": {
+    "burnIn": true,
+    "includeSrt": true,
+    "includeTranscript": false
+  }
+}
