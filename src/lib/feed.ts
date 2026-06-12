@@ -1,4 +1,4 @@
-import { count, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
 import type { AppRow, PostRow } from "@/db/schema";
 
@@ -19,8 +19,18 @@ export type AppStats = {
 
 export type FeedApp = AppRow & { stats: AppStats };
 
+/** Viewer identity for per-row hydration flags (likedByMe etc.). */
+export type ViewerIdentity = { userId: string | null; anonId: string | null };
+
 /** A feed entry under the posts model: one post + its app + app stats. */
-export type FeedPost = { post: PostRow; app: AppRow; stats: AppStats };
+export type FeedPost = {
+  post: PostRow;
+  app: AppRow;
+  stats: AppStats;
+  likedByMe: boolean;
+  savedByMe: boolean;
+  followedByMe: boolean;
+};
 
 function emptyStats(): AppStats {
   return {
@@ -57,25 +67,57 @@ function computeScore(s: AppStats): number {
   );
 }
 
-/** Aggregate interaction/feedback stats per app (D1 has no RLS/views — plain queries). */
-export async function getAppStats(): Promise<Map<string, AppStats>> {
+/**
+ * Interaction types that participate in the App Score. Explicit allowlist —
+ * new analytics types (badge_view etc.) must never silently leak into
+ * ranking inputs.
+ */
+const SCORE_INTERACTION_TYPES = [
+  "impression",
+  "video_complete",
+  "skip",
+  "try_click",
+  "try_return",
+  "like",
+  "save",
+  "share",
+] as const;
+
+/**
+ * Aggregate interaction/feedback stats per app (D1 has no RLS/views — plain
+ * queries). Counts are deduped per identity (namespaced 'u:'/'a:' so user and
+ * anon id strings can't collide) — spamming N events from one identity moves
+ * a counter by exactly 1. Pass appIds to scope the aggregation (app detail /
+ * dashboard pages must not pay for a full-table GROUP BY).
+ */
+export async function getAppStats(appIds?: string[]): Promise<Map<string, AppStats>> {
   const db = await getDb();
+  if (appIds && appIds.length === 0) return new Map();
+
+  const identity = sql`COALESCE('u:' || user_id, 'a:' || anonymous_id)`;
 
   const [interactionCounts, feedbackRows] = await Promise.all([
     db
       .select({
         appId: schema.interactions.appId,
         type: schema.interactions.type,
-        n: count(),
+        n: sql<number>`COUNT(DISTINCT ${identity})`,
       })
       .from(schema.interactions)
+      .where(
+        and(
+          inArray(schema.interactions.type, [...SCORE_INTERACTION_TYPES]),
+          appIds ? inArray(schema.interactions.appId, appIds) : undefined
+        )
+      )
       .groupBy(schema.interactions.appId, schema.interactions.type),
     db
       .select({
         appId: schema.feedback.appId,
         tags: schema.feedback.tags,
       })
-      .from(schema.feedback),
+      .from(schema.feedback)
+      .where(appIds ? inArray(schema.feedback.appId, appIds) : undefined),
   ]);
 
   const map = new Map<string, AppStats>();
@@ -137,24 +179,57 @@ export async function getAppStats(): Promise<Map<string, AppStats>> {
  * 40% random, interleaved and deduped per post. Apps in 'unclaimed' status
  * appear in the feed (cold-start curation); 'hidden' apps never do.
  */
-export async function getFeedPosts(limit = 40): Promise<FeedPost[]> {
+export async function getFeedPosts(
+  limit = 40,
+  viewer?: ViewerIdentity
+): Promise<FeedPost[]> {
   const db = await getDb();
-  const [rows, statsMap] = await Promise.all([
-    db
-      .select({ post: schema.posts, app: schema.apps })
-      .from(schema.posts)
-      .innerJoin(schema.apps, eq(schema.posts.appId, schema.apps.id))
-      .where(
-        sql`${schema.posts.status} = 'published' AND ${schema.apps.status} IN ('published', 'unclaimed')`
-      )
-      .orderBy(sql`${schema.posts.createdAt} desc`),
-    getAppStats(),
-  ]);
+  const userId = viewer?.userId ?? null;
+  const anonId = viewer?.anonId ?? null;
+
+  // Per-row hydration flags via EXISTS on unique-indexed lookups — one SSR
+  // query, no client roundtrip, no like/save/follow state flicker.
+  const likedByMe = userId
+    ? sql<number>`EXISTS(SELECT 1 FROM likes WHERE likes.post_id = ${schema.posts.id} AND likes.user_id = ${userId})`
+    : sql<number>`0`;
+  const savedByMe = userId
+    ? sql<number>`EXISTS(SELECT 1 FROM saves WHERE saves.app_id = ${schema.apps.id} AND saves.user_id = ${userId})`
+    : anonId
+      ? sql<number>`EXISTS(SELECT 1 FROM saves WHERE saves.app_id = ${schema.apps.id} AND saves.anonymous_id = ${anonId})`
+      : sql<number>`0`;
+  const followedByMe = userId
+    ? sql<number>`EXISTS(SELECT 1 FROM follows WHERE follows.target_type = 'app' AND follows.target_id = ${schema.apps.id} AND follows.follower_id = ${userId})`
+    : sql<number>`0`;
+
+  const rows = await db
+    .select({
+      post: schema.posts,
+      app: schema.apps,
+      likedByMe,
+      savedByMe,
+      followedByMe,
+    })
+    .from(schema.posts)
+    .innerJoin(schema.apps, eq(schema.posts.appId, schema.apps.id))
+    .where(
+      sql`${schema.posts.status} = 'published' AND ${schema.apps.status} IN ('published', 'unclaimed')`
+    )
+    .orderBy(sql`${schema.posts.createdAt} desc`)
+    // Candidate pool cap: the mix is built from the newest 200 posts, so a
+    // growing catalog can't turn every home render into a full-table read.
+    // (seed-window pagination lands when the pool itself overflows.)
+    .limit(200);
+
+  // Stats scoped to the candidate pool — never a full-table aggregate.
+  const statsMap = await getAppStats([...new Set(rows.map((r) => r.app.id))]);
 
   const withStats: FeedPost[] = rows.map((r) => ({
     post: r.post,
     app: r.app,
     stats: statsMap.get(r.app.id) ?? emptyStats(),
+    likedByMe: !!r.likedByMe,
+    savedByMe: !!r.savedByMe,
+    followedByMe: !!r.followedByMe,
   }));
 
   const popular = [...withStats].sort((a, b) => b.stats.score - a.stats.score);
@@ -191,15 +266,3 @@ export async function getFeedPosts(limit = 40): Promise<FeedPost[]> {
   return first ? [first, ...rest.sort(() => Math.random() - 0.5)] : out;
 }
 
-/** Batch like counts for a set of posts (cached column is authoritative for v1). */
-export async function getPostLikeCounts(
-  postIds: string[]
-): Promise<Map<string, number>> {
-  if (postIds.length === 0) return new Map();
-  const db = await getDb();
-  const rows = await db
-    .select({ id: schema.posts.id, likeCount: schema.posts.likeCount })
-    .from(schema.posts)
-    .where(inArray(schema.posts.id, postIds));
-  return new Map(rows.map((r) => [r.id, r.likeCount]));
-}

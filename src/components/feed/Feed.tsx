@@ -14,17 +14,9 @@ import type { FeedItem } from "@/lib/types";
 
 type FeedTab = "foryou" | "following" | "categories";
 
-const LIKES_KEY = "glim_likes";
 const SAVES_KEY = "glim_saves";
 const NUDGE_KEY = "glim_nudge_dismissed";
 
-function loadSet(key: string): Set<string> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(key) ?? "[]"));
-  } catch {
-    return new Set();
-  }
-}
 function saveSet(key: string, s: Set<string>) {
   localStorage.setItem(key, JSON.stringify([...s]));
 }
@@ -35,9 +27,18 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [tab, setTab] = useState<FeedTab>("foryou");
   const [category, setCategory] = useState<string | null>(null);
-  const [liked, setLiked] = useState<Set<string>>(new Set());
-  const [saved, setSaved] = useState<Set<string>>(new Set());
-  const [followedApps, setFollowedApps] = useState<Set<string>>(new Set());
+  // Like/save/follow state is server-hydrated via SSR flags (likedByMe etc.) —
+  // localStorage is no longer an authority (it let toggles drift from the DB).
+  // liked is keyed by postId (likes are per-post), saved/followed by appId.
+  const [liked, setLiked] = useState<Set<string>>(
+    () => new Set(apps.filter((a) => a.likedByMe).map((a) => a.postId))
+  );
+  const [saved, setSaved] = useState<Set<string>>(
+    () => new Set(apps.filter((a) => a.savedByMe).map((a) => a.id))
+  );
+  const [followedApps, setFollowedApps] = useState<Set<string>>(
+    () => new Set(apps.filter((a) => a.followedByMe).map((a) => a.id))
+  );
   const [followingItems, setFollowingItems] = useState<FeedItem[] | null>(null);
   const [feedbackApp, setFeedbackApp] = useState<{ id: string; name: string } | null>(null);
   const [commentsPost, setCommentsPost] = useState<{ postId: string; appName: string } | null>(null);
@@ -45,7 +46,8 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
   const [toast, setToast] = useState<string | null>(null);
   const completedRef = useRef<Set<string>>(new Set());
   const impressionsRef = useRef<Set<string>>(new Set());
-  const prevActiveRef = useRef(0);
+  // In-flight toggle guard: rapid double-taps must not race the server.
+  const pendingRef = useRef<Set<string>>(new Set());
 
   const categories = useMemo(
     () => [...new Set(apps.map((a) => a.category))].sort(),
@@ -61,12 +63,24 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
     return apps;
   }, [apps, tab, category, followingItems]);
 
+  // Merge hydration flags from the following feed once it loads (those items
+  // aren't part of the SSR props).
   useEffect(() => {
-    setLiked(loadSet(LIKES_KEY));
-    setSaved(loadSet(SAVES_KEY));
-  }, []);
+    if (!followingItems) return;
+    setLiked((prev) => {
+      const next = new Set(prev);
+      for (const it of followingItems) if (it.likedByMe) next.add(it.postId);
+      return next;
+    });
+    setSaved((prev) => {
+      const next = new Set(prev);
+      for (const it of followingItems) if (it.savedByMe) next.add(it.id);
+      return next;
+    });
+  }, [followingItems]);
 
-  // Hydrate follow-button state once the session is known.
+  // Refresh follow-button state once the session is known (covers follows
+  // made on other pages after the SSR snapshot).
   useEffect(() => {
     if (!session?.user) return;
     let cancelled = false;
@@ -158,10 +172,14 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
     containerRef.current?.scrollTo({ top: 0 });
   }, [tab, category]);
 
-  // Keyboard navigation (desktop).
+  // Keyboard navigation (desktop). Bails out while a sheet/modal is open or
+  // the user is typing — arrow keys must not scroll the feed behind them.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (commentsPost || feedbackApp || showNudge) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       e.preventDefault();
       scrollToCard(activeIndex + (e.key === "ArrowDown" ? 1 : -1));
     };
@@ -176,46 +194,88 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
     card?.scrollIntoView({ behavior: "smooth" });
   };
 
-  prevActiveRef.current = activeIndex;
-
   const maybeNudge = useCallback(
-    (nextLikes: Set<string>, nextSaves: Set<string>, feedbackGiven = false) => {
+    (nextSaves: Set<string>, feedbackGiven = false) => {
       if (session?.user || localStorage.getItem(NUDGE_KEY)) return;
-      if (nextLikes.size >= 3 || nextSaves.size >= 1 || feedbackGiven) {
+      if (nextSaves.size >= 1 || feedbackGiven) {
         setShowNudge(true);
       }
     },
     [session?.user]
   );
 
-  const handleLike = (app: FeedItem) => {
-    setLiked((prev) => {
-      const next = new Set(prev);
-      if (next.has(app.id)) {
-        next.delete(app.id);
-      } else {
-        next.add(app.id);
-        track(app.id, "like");
-      }
-      saveSet(LIKES_KEY, next);
-      maybeNudge(next, saved);
-      return next;
-    });
+  const failToast = () => {
+    setToast("잠시 후 다시 시도해주세요");
+    setTimeout(() => setToast(null), 1800);
   };
 
-  const handleSave = (app: FeedItem) => {
-    setSaved((prev) => {
-      const next = new Set(prev);
-      if (next.has(app.id)) {
-        next.delete(app.id);
-      } else {
-        next.add(app.id);
-        track(app.id, "save");
-      }
-      saveSet(SAVES_KEY, next);
-      maybeNudge(liked, next);
-      return next;
-    });
+  // Likes are per-post and login-required (design decision: deliberate
+  // asymmetry with saves). Anonymous tap → login prompt.
+  const handleLike = async (app: FeedItem) => {
+    if (!session?.user) {
+      setShowNudge(true);
+      return;
+    }
+    const key = `like:${app.postId}`;
+    if (pendingRef.current.has(key)) return;
+    pendingRef.current.add(key);
+    const wasLiked = liked.has(app.postId);
+    const next = new Set(liked);
+    if (wasLiked) next.delete(app.postId);
+    else next.add(app.postId);
+    setLiked(next);
+    try {
+      const res = await fetch("/api/likes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId: app.postId, action: wasLiked ? "remove" : "add" }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setLiked((prev) => {
+        const revert = new Set(prev);
+        if (wasLiked) revert.add(app.postId);
+        else revert.delete(app.postId);
+        return revert;
+      });
+      failToast();
+    } finally {
+      pendingRef.current.delete(key);
+    }
+  };
+
+  // Saves are app-level and allow anonymous identity (signed cookie).
+  // localStorage stays as an aux cache for the anonymous /saved page only.
+  const handleSave = async (app: FeedItem) => {
+    const key = `save:${app.id}`;
+    if (pendingRef.current.has(key)) return;
+    pendingRef.current.add(key);
+    const wasSaved = saved.has(app.id);
+    const next = new Set(saved);
+    if (wasSaved) next.delete(app.id);
+    else next.add(app.id);
+    setSaved(next);
+    saveSet(SAVES_KEY, next);
+    maybeNudge(next);
+    try {
+      const res = await fetch("/api/saves", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appId: app.id, action: wasSaved ? "remove" : "add" }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setSaved((prev) => {
+        const revert = new Set(prev);
+        if (wasSaved) revert.add(app.id);
+        else revert.delete(app.id);
+        saveSet(SAVES_KEY, revert);
+        return revert;
+      });
+      failToast();
+    } finally {
+      pendingRef.current.delete(key);
+    }
   };
 
   const handleFollow = async (app: FeedItem) => {
@@ -323,7 +383,7 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
             key={app.postId}
             app={app}
             active={i === activeIndex}
-            liked={liked.has(app.id)}
+            liked={liked.has(app.postId)}
             saved={saved.has(app.id)}
             followed={followedApps.has(app.id)}
             onLike={() => handleLike(app)}
@@ -380,7 +440,7 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
         app={feedbackApp}
         onClose={() => setFeedbackApp(null)}
         onSubmitted={() => {
-          maybeNudge(liked, saved, true);
+          maybeNudge(saved, true);
           scrollToCard(activeIndex + 1); // flow straight into the next app
         }}
       />

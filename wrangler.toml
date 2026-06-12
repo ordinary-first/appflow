@@ -23,6 +23,16 @@ migrations_dir = "drizzle"
 binding = "BUCKET"
 bucket_name = "glim-media"
 
+# --- Rate limiting (GA binding) ---
+# IP-keyed write-route limiter: 60 requests / 60s. Absent locally (no-op).
+[[ratelimits]]
+name = "RL_WRITE"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
+
 [vars]
 # Public base URL of the app (used by better-auth). Override per environment.
 BETTER_AUTH_URL = "https://glim.ordinaryindividuality.workers.dev"
+# Production predicate for fail-closed checks (auth secret, rate limiting).
+# Local dev overrides this in .dev.vars with ENVIRONMENT="development".
+ENVIRONMENT = "production"

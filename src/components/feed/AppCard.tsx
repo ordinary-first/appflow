@@ -287,8 +287,10 @@ export function AppCard({
             )}
           </button>
         </div>
+        {/* Server count already includes my own like/save (SSR flags) — the
+            optimistic delta only applies relative to that initial state. */}
         <RailButton
-          label={String(app.likes + (liked ? 1 : 0))}
+          label={String(app.likes + (liked ? 1 : 0) - (app.likedByMe ? 1 : 0))}
           onClick={onLike}
           icon={
             <Heart
@@ -297,7 +299,7 @@ export function AppCard({
           }
         />
         <RailButton
-          label={String(app.saves + (saved ? 1 : 0))}
+          label={String(app.saves + (saved ? 1 : 0) - (app.savedByMe ? 1 : 0))}
           onClick={onSave}
           icon={
             <Bookmark

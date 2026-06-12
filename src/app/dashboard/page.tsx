@@ -51,8 +51,9 @@ export default async function DashboardPage() {
     .where(eq(schema.apps.makerId, user.id))
     .orderBy(desc(schema.apps.createdAt));
 
-  const statsMap = await getAppStats();
   const appIds = myApps.map((a) => a.id);
+  // Scoped to this maker's apps — no full-table interactions aggregate.
+  const statsMap = await getAppStats(appIds);
   const comments =
     appIds.length > 0
       ? await db

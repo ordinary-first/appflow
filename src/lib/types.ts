@@ -24,10 +24,15 @@ export type FeedItem = {
   embeddable: boolean;
   platform: "web" | "ios" | "android" | "cross_platform";
   storeUrls: { ios?: string; android?: string } | null;
+  /** Cached counters — the toggle tables are the authority (Signal Authority). */
   likes: number;
   saves: number;
   feedbackCount: number;
   commentCount: number;
   /** Trust signal: how many people clicked Try on this app. */
   tryCount: number;
+  /** Viewer hydration flags (SSR) — initial like/save/follow state, no flicker. */
+  likedByMe: boolean;
+  savedByMe: boolean;
+  followedByMe: boolean;
 };

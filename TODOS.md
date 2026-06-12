@@ -1,0 +1,19 @@
+# TODOS
+
+> CEO 리뷰(2026-06-13, `~/.gstack/projects/ordinary-first-appflow/ceo-plans/2026-06-13-platform-stabilization-growth.md`)에서 연기된 항목 + 기존 HANDOFF §9 잔여분.
+
+## P2 — 다음 스프린트 후보
+
+- [ ] **주간 인앱 다이제스트 (E6b)** — 팔로워·저장 활동 있는 메이커에게 주 1회 인앱 알림 ("이번 주 BirdsEyes: Try 23, 저장 7"). `app_daily_stats` 인프라(E2) 안정화 후. 이메일 발송은 스팸 리스크 원칙상 별도 opt-in 결정 필요. Effort: M→S (CC).
+- [ ] **GitHub Actions CI** — push 시 `pnpm typecheck` + `pnpm test`(vitest) 실행. 테스트 인프라가 이번 스프린트에 생기므로 회귀 그물을 자동화. Effort: S.
+- [ ] **seed-window 페이지네이션 (추천 피드)** — 설계 문서 확정 모델. 트리거: published 포스트 200개 돌파. 현재는 후보풀 LIMIT 200 + 40장 단일 배치로 충분. Effort: M→S (CC).
+
+## P3 — 시점 도래 시
+
+- [ ] **R2 presigned URL 직접 업로드** — 업로드 한도 25MB 상향이 필요해질 때. S3 호환 API 토큰 필요. 현 formData 경유는 Workers 메모리 버퍼링 한계. Effort: M.
+- [ ] **검색 FTS 전환** — 카탈로그 수백 개 돌파 시 LIKE → SQLite FTS5 (D1 지원 확인 필요) 또는 태그/카테고리 가중 랭킹. Effort: M.
+- [ ] **클레임 알림 이메일 (opt-in)** — 설계 문서 Phase 6 이후 원칙 유지.
+- [ ] **Cloudflare Stream 전환** — 영상 수 증가 시 R2 mp4 → Stream (기존 HANDOFF).
+- [ ] **개인화 추천** — interaction 로그 기반 카테고리 개인화 (기존 HANDOFF).
+- [ ] **관리자 UI** — 클레임 승인(현재 x-admin-token curl)·앱 승인/반려 (기존 HANDOFF).
+- [ ] **아웃리치 상태 DB 테이블화** — 스프레드시트 운영에서 클레임 실적이 생기면 재평가 (CEO 플랜 E4의 YAGNI 가드).

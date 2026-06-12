@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { getDb, schema } from "@/db";
 import { getSessionUser } from "@/lib/auth";
+import { resolveAnonIdentity, withAnonCookie } from "@/lib/anon-server";
+import { checkWriteRate, tooManyRequests } from "@/lib/rate-limit";
 import { INTERACTION_TYPES, type InteractionType } from "@/db/schema";
 
 /**
  * Records a single interaction event (anonymous or logged-in).
- * Insert-only: events are immutable, so no ownership checks needed beyond
- * attributing user_id from the verified session (never from the body).
+ * Insert-only: events are immutable. Identity is server-determined —
+ * user_id from the verified session, anonymous_id from the HMAC-signed
+ * cookie. The body's anonymousId (legacy clients) is ignored entirely,
+ * so feed-ranking inputs can't be forged by minting ids client-side.
  */
 export async function POST(req: Request) {
   let body: {
     appId?: string;
     type?: string;
-    anonymousId?: string;
     metadata?: Record<string, unknown>;
   };
   try {
@@ -21,26 +24,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
 
-  const { appId, type, anonymousId, metadata } = body;
+  const { appId, type, metadata } = body;
   if (!appId || !type || !INTERACTION_TYPES.includes(type as InteractionType)) {
     return NextResponse.json({ error: "invalid payload" }, { status: 400 });
   }
 
   const user = await getSessionUser();
-  if (!user && !anonymousId) {
-    return NextResponse.json({ error: "missing identity" }, { status: 400 });
-  }
+  const anon = await resolveAnonIdentity(req);
+
+  const rate = await checkWriteRate(req, anon.anonId);
+  if (!rate.allowed) return withAnonCookie(tooManyRequests(), anon);
 
   const db = await getDb();
-  await db.insert(schema.interactions).values({
-    id: crypto.randomUUID(),
-    appId,
-    type: type as InteractionType,
-    userId: user?.id ?? null,
-    anonymousId: anonymousId ?? null,
-    metadata: metadata ?? null,
-    createdAt: new Date(),
-  });
+  try {
+    await db.insert(schema.interactions).values({
+      id: crypto.randomUUID(),
+      appId,
+      type: type as InteractionType,
+      userId: user?.id ?? null,
+      anonymousId: user ? null : anon.anonId,
+      metadata: metadata ?? null,
+      createdAt: new Date(),
+    });
+  } catch {
+    // Unknown appId hits the FK — a client bug or a probe, not a 500.
+    return withAnonCookie(
+      NextResponse.json({ error: "unknown app" }, { status: 400 }),
+      anon
+    );
+  }
 
-  return NextResponse.json({ ok: true });
+  return withAnonCookie(NextResponse.json({ ok: true }), anon);
 }

@@ -36,6 +36,20 @@
       "when": 1781400000000,
       "tag": "0004_image_captions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1781450000000,
+      "tag": "0005_likes_saves_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1781285044916,
+      "tag": "0006_nosy_flatman",
+      "breakpoints": true
     }
   ]
 }

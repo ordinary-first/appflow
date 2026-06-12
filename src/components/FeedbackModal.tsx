@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getAnonymousId } from "@/lib/anon";
 import type { FeedbackTag } from "@/db/schema";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +30,7 @@ export function FeedbackModal({
   const [selected, setSelected] = useState<FeedbackTag[]>([]);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const toggle = (tag: FeedbackTag) =>
     setSelected((s) =>
@@ -40,25 +40,33 @@ export function FeedbackModal({
   const reset = () => {
     setSelected([]);
     setComment("");
+    setError(null);
   };
 
   const submit = async () => {
+    if (busy) return; // Enter while in flight must not double-submit
     if (!app || (selected.length === 0 && !comment.trim())) return;
     setBusy(true);
+    setError(null);
     try {
-      await fetch("/api/feedback", {
+      const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           appId: app.id,
           tags: selected,
           comment: comment.trim() || undefined,
-          anonymousId: getAnonymousId(),
         }),
       });
+      if (!res.ok) {
+        setError("전송에 실패했어요. 잠시 후 다시 시도해주세요.");
+        return; // keep the modal open — feedback must never be silently lost
+      }
       reset();
       onSubmitted?.();
       onClose();
+    } catch {
+      setError("네트워크 오류예요. 연결을 확인하고 다시 시도해주세요.");
     } finally {
       setBusy(false);
     }
@@ -98,8 +106,17 @@ export function FeedbackModal({
         value={comment}
         maxLength={280}
         onChange={(e) => setComment(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && submit()}
+        onKeyDown={(e) => {
+          // isComposing: Hangul/IME composition-confirm Enter must not submit
+          if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+        }}
       />
+
+      {error && (
+        <p className="mt-2 text-sm text-red-400" role="alert">
+          {error}
+        </p>
+      )}
 
       <div className="mt-4 flex gap-2">
         <Button

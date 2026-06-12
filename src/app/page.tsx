@@ -1,5 +1,7 @@
 import { Feed } from "@/components/feed/Feed";
 import { getFeedPosts } from "@/lib/feed";
+import { getSessionUser } from "@/lib/auth";
+import { readAnonIdFromCookies } from "@/lib/anon-server";
 import type { FeedItem } from "@/lib/types";
 
 // The feed reads D1 per request — never statically generated.
@@ -8,8 +10,15 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   let items: FeedItem[] = [];
   try {
-    const entries = await getFeedPosts(40);
-    items = entries.map(({ post, app, stats }) => ({
+    const [user, anonId] = await Promise.all([
+      getSessionUser(),
+      readAnonIdFromCookies(),
+    ]);
+    const entries = await getFeedPosts(40, {
+      userId: user?.id ?? null,
+      anonId: user ? null : anonId,
+    });
+    items = entries.map(({ post, app, stats, likedByMe, savedByMe, followedByMe }) => ({
       postId: post.id,
       id: app.id,
       slug: app.slug,
@@ -28,16 +37,17 @@ export default async function HomePage() {
       embeddable: app.embeddable,
       platform: app.platform,
       storeUrls: app.storeUrls ?? null,
-      // Interim display source: interactions stats (the client still writes
-      // likes/saves via track()). Migration COPIED legacy rows into
-      // likes/saves, so stats covers full history without double counting.
-      // Phase 4/5 switch the write path and the display to the cached
-      // post.likeCount / app.saveCount columns.
-      likes: stats.likes,
-      saves: stats.saves,
+      // Signal Authority: user-visible counts come from the cached columns
+      // (likes/saves tables are the source of truth, recounted on toggle).
+      // interactions remain analytics-only (ranking/trends, deduped).
+      likes: post.likeCount,
+      saves: app.saveCount,
       feedbackCount: stats.feedbackCount,
       commentCount: post.commentCount,
       tryCount: stats.tryClicks,
+      likedByMe,
+      savedByMe,
+      followedByMe,
     }));
   } catch {
     // DB not migrated yet — render the empty state instead of crashing.

@@ -4,15 +4,26 @@ import { headers } from "next/headers";
 import { getDb, getEnv, schema } from "@/db";
 
 /**
+ * Auth/anon-cookie signing secret. Fail-closed: in production (wrangler
+ * [vars] ENVIRONMENT="production") a missing secret throws instead of
+ * silently signing sessions with a publicly known fallback string.
+ */
+export function getAuthSecret(env: CloudflareEnv): string {
+  const secret = env.BETTER_AUTH_SECRET ?? process.env.BETTER_AUTH_SECRET;
+  if (secret) return secret;
+  if (env.ENVIRONMENT === "production") {
+    throw new Error("BETTER_AUTH_SECRET is not set in production");
+  }
+  return "dev-only-insecure-secret-change-me";
+}
+
+/**
  * better-auth must be constructed per-request on Workers because the D1
  * binding is only available inside a request context.
  */
 export async function getAuth() {
   const [db, env] = await Promise.all([getDb(), getEnv()]);
-  const secret =
-    env.BETTER_AUTH_SECRET ??
-    process.env.BETTER_AUTH_SECRET ??
-    "dev-only-insecure-secret-change-me";
+  const secret = getAuthSecret(env);
   const baseURL =
     env.BETTER_AUTH_URL ??
     process.env.BETTER_AUTH_URL ??

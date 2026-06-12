@@ -19,19 +19,13 @@ export default async function SavedPage() {
   if (user) {
     const db = await getDb();
 
-    // Distinct app_ids the user has ever 'save'-interacted with, ordered by
-    // their most recent save. Hidden/deleted apps drop out at the next step.
+    // Signal Authority: the saves table is the truth — an unsaved app
+    // disappears here immediately (interactions kept un-saved apps forever).
     const savedRows = await db
-      .select({ appId: schema.interactions.appId })
-      .from(schema.interactions)
-      .where(
-        and(
-          eq(schema.interactions.userId, user.id),
-          eq(schema.interactions.type, "save"),
-        ),
-      )
-      .groupBy(schema.interactions.appId)
-      .orderBy(sql`max(${schema.interactions.createdAt}) desc`);
+      .select({ appId: schema.saves.appId })
+      .from(schema.saves)
+      .where(eq(schema.saves.userId, user.id))
+      .orderBy(sql`${schema.saves.createdAt} desc`);
 
     const orderedIds = savedRows.map((r) => r.appId);
     if (orderedIds.length === 0) {

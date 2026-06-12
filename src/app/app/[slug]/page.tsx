@@ -104,7 +104,8 @@ export default async function AppDetailPage({
     .orderBy(desc(schema.posts.likeCount), desc(schema.posts.createdAt))
     .limit(50);
 
-  const stats = (await getAppStats()).get(app.id);
+  // Scoped to this single app — no full-table interactions aggregate.
+  const stats = (await getAppStats([app.id])).get(app.id);
   const ytId = !app.demoVideoUrl && app.youtubeUrl ? youtubeVideoId(app.youtubeUrl) : null;
   const topTags = Object.entries(stats?.topFeedbackTags ?? {})
     .sort((a, b) => b[1] - a[1])
@@ -192,12 +193,23 @@ export default async function AppDetailPage({
       {/* 4. Try CTA */}
       <div className="mt-5">
         {app.platform === "web" ? (
-          <Link
-            href={`/try/${app.id}`}
-            className="flex h-12 w-full items-center justify-center rounded-xl bg-foreground font-semibold text-background hover:bg-foreground/90"
-          >
-            Try it now →
-          </Link>
+          app.embeddable ? (
+            <Link
+              href={`/try/${app.id}`}
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-foreground font-semibold text-background hover:bg-foreground/90"
+            >
+              Try it now →
+            </Link>
+          ) : (
+            <a
+              href={app.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-foreground font-semibold text-background hover:bg-foreground/90"
+            >
+              Try it now <ExternalLink className="h-4 w-4" />
+            </a>
+          )
         ) : app.platform === "cross_platform" ? (
           <div className="flex gap-2">
             {app.storeUrls?.ios && (

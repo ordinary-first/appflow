@@ -22,8 +22,12 @@ export async function GET(req: Request) {
   }
 
   const db = await getDb();
+  // Viewer hydration flags — same EXISTS pattern as getFeedPosts. The
+  // following feed is login-only, so user-keyed lookups suffice.
+  const likedByMe = sql<number>`EXISTS(SELECT 1 FROM likes WHERE likes.post_id = ${schema.posts.id} AND likes.user_id = ${user.id})`;
+  const savedByMe = sql<number>`EXISTS(SELECT 1 FROM saves WHERE saves.app_id = ${schema.apps.id} AND saves.user_id = ${user.id})`;
   const rows = await db
-    .select({ post: schema.posts, app: schema.apps })
+    .select({ post: schema.posts, app: schema.apps, likedByMe, savedByMe })
     .from(schema.posts)
     .innerJoin(schema.apps, eq(schema.posts.appId, schema.apps.id))
     .where(
@@ -43,11 +47,14 @@ export async function GET(req: Request) {
     .orderBy(sql`${schema.posts.createdAt} desc, ${schema.posts.id} desc`)
     .limit(40);
 
-  const statsMap = await getAppStats();
+  const statsMap = await getAppStats([...new Set(rows.map((r) => r.app.id))]);
 
-  const items: FeedItem[] = rows.map(({ post, app }) => {
+  const items: FeedItem[] = rows.map(({ post, app, likedByMe, savedByMe }) => {
     const stats = statsMap.get(app.id);
     return {
+      likedByMe: !!likedByMe,
+      savedByMe: !!savedByMe,
+      followedByMe: true, // by construction: this feed only contains followed targets
       postId: post.id,
       id: app.id,
       slug: app.slug,
@@ -66,8 +73,9 @@ export async function GET(req: Request) {
       embeddable: app.embeddable,
       platform: app.platform,
       storeUrls: app.storeUrls ?? null,
-      likes: stats?.likes ?? 0,
-      saves: stats?.saves ?? 0,
+      // Signal Authority: cached columns, not interactions aggregates.
+      likes: post.likeCount,
+      saves: app.saveCount,
       feedbackCount: stats?.feedbackCount ?? 0,
       commentCount: post.commentCount,
       tryCount: stats?.tryClicks ?? 0,

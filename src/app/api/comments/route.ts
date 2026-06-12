@@ -124,9 +124,13 @@ export async function POST(req: Request) {
     body,
     createdAt: now,
   });
+  // Recount instead of blind +1 — self-healing like the follows counter
+  // (a failed insert or a future delete path can't leave the cache drifted).
   await db
     .update(schema.posts)
-    .set({ commentCount: sql`${schema.posts.commentCount} + 1` })
+    .set({
+      commentCount: sql`(SELECT COUNT(*) FROM comments WHERE post_id = ${postId})`,
+    })
     .where(eq(schema.posts.id, postId));
 
   // Notify, unless you're talking to yourself or to the system account.
