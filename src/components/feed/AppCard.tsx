@@ -89,24 +89,7 @@ export function AppCard({
   return (
     <section className="relative h-dvh w-full overflow-hidden bg-black">
       {/* ---- media ---- */}
-      {isSlideshow ? (
-        <ImageSlideshow
-          images={app.imageUrls!}
-          captions={app.imageCaptions}
-          alt={app.name}
-          active={active}
-          onViewedAll={() => {
-            // Seeing every slide counts as a completed view (the slideshow
-            // equivalent of watching the video to the end).
-            if (!completedRef.current) {
-              completedRef.current = true;
-              track(app.id, "video_complete", undefined, { once: true });
-              setCtaBoost(true);
-              onVideoComplete();
-            }
-          }}
-        />
-      ) : app.demoVideoUrl ? (
+      {app.demoVideoUrl ? (
         <video
           ref={videoRef}
           src={app.demoVideoUrl}
@@ -126,6 +109,21 @@ export function AppCard({
           src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${ytId}&rel=0&modestbranding=1`}
           allow="autoplay; encrypted-media; picture-in-picture"
           title={app.name}
+        />
+      ) : isSlideshow ? (
+        <ImageSlideshow
+          images={app.imageUrls!}
+          captions={app.imageCaptions}
+          alt={app.name}
+          active={active}
+          onViewedAll={() => {
+            if (!completedRef.current) {
+              completedRef.current = true;
+              track(app.id, "video_complete", undefined, { once: true });
+              setCtaBoost(true);
+              onVideoComplete();
+            }
+          }}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">

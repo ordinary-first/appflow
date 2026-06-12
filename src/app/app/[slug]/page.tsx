@@ -8,6 +8,7 @@ import { getAppStats } from "@/lib/feed";
 import { youtubeVideoId, cn } from "@/lib/utils";
 import { ClaimButton } from "@/components/ClaimButton";
 import { FollowAppButton } from "@/components/FollowAppButton";
+import { DescriptionExpander } from "@/components/DescriptionExpander";
 import { BottomNav } from "@/components/BottomNav";
 
 export const dynamic = "force-dynamic";
@@ -29,8 +30,6 @@ async function getApp(slug: string) {
     .from(schema.apps)
     .where(eq(schema.apps.slug, slug))
     .limit(1);
-  // Unclaimed (curated) apps are public — that's how makers find and claim
-  // them. Only 'hidden' and 'draft' stay private.
   return app && ["published", "unclaimed"].includes(app.status) ? app : null;
 }
 
@@ -86,6 +85,7 @@ export default async function AppDetailPage({
             eq(schema.posts.type, "review")
           )
         : and(eq(schema.posts.appId, app.id), eq(schema.posts.status, "published"));
+
   const posts = await db
     .select({
       id: schema.posts.id,
@@ -101,14 +101,21 @@ export default async function AppDetailPage({
     .from(schema.posts)
     .innerJoin(schema.user, eq(schema.posts.authorId, schema.user.id))
     .where(postFilter)
-    .orderBy(desc(schema.posts.createdAt))
+    .orderBy(desc(schema.posts.likeCount), desc(schema.posts.createdAt))
     .limit(50);
 
   const stats = (await getAppStats()).get(app.id);
   const ytId = !app.demoVideoUrl && app.youtubeUrl ? youtubeVideoId(app.youtubeUrl) : null;
   const topTags = Object.entries(stats?.topFeedbackTags ?? {})
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
+    .slice(0, 3);
+
+  // Top reviews surfaced inline — most liked first, must have caption
+  const topReviews = posts
+    .filter((p) => p.type === "review" && p.caption)
+    .slice(0, 3);
+
+  const hasMedia = !!(app.demoVideoUrl || ytId);
 
   return (
     <main className="mx-auto max-w-2xl px-5 py-6 pb-24">
@@ -119,47 +126,77 @@ export default async function AppDetailPage({
         <ArrowLeft className="h-4 w-4" /> Back to Glim
       </Link>
 
-      <div className="mt-5 overflow-hidden rounded-2xl border border-border bg-black">
-        {app.demoVideoUrl ? (
-          <video
-            src={app.demoVideoUrl}
-            poster={app.thumbnailUrl ?? undefined}
-            className="aspect-video w-full object-contain"
-            controls
-            muted
-            autoPlay
-            loop
-            playsInline
-          />
-        ) : ytId ? (
-          <iframe
-            className="aspect-video w-full"
-            src={`https://www.youtube.com/embed/${ytId}?mute=1&rel=0`}
-            title={app.name}
-            allow="autoplay; encrypted-media"
-          />
-        ) : null}
-      </div>
-
-      <div className="mt-5 flex items-start justify-between gap-4">
-        <div>
+      {/* 1. Identity */}
+      <div className="mt-5">
+        <div className="flex flex-wrap gap-1.5">
           <span className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground">
             {app.category}
           </span>
           {app.status === "unclaimed" && (
-            <span className="ml-1.5 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-0.5 text-xs text-yellow-500">
+            <span className="rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-0.5 text-xs text-yellow-500">
               Curated · unclaimed
             </span>
           )}
-          <h1 className="mt-2 text-2xl font-bold">{app.name}</h1>
-          <p className="mt-1 text-muted-foreground">{app.tagline}</p>
         </div>
+        <h1 className="mt-2 text-2xl font-bold">{app.name}</h1>
+        <p className="mt-1 text-muted-foreground">{app.tagline}</p>
+      </div>
+
+      {/* 2. Trust signals */}
+      {((stats?.tryClicks ?? 0) > 0 || topTags.length > 0) && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          {(stats?.tryClicks ?? 0) > 0 && (
+            <span>{stats!.tryClicks.toLocaleString()} tried</span>
+          )}
+          {topTags.map(([tag, n]) => (
+            <span key={tag}>
+              {TAG_LABELS[tag] ?? tag} ×{n}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* 3. Media carousel */}
+      {hasMedia && (
+        <div className="-mx-5 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2">
+          {app.demoVideoUrl && (
+            <div className="flex-none snap-start overflow-hidden rounded-2xl border border-border bg-black"
+              style={{ width: "75vw", maxWidth: "20rem" }}>
+              <video
+                src={app.demoVideoUrl}
+                poster={app.thumbnailUrl ?? undefined}
+                className="h-full w-full object-contain"
+                style={{ aspectRatio: "9/16", maxHeight: "60vh" }}
+                controls
+                muted
+                autoPlay
+                loop
+                playsInline
+              />
+            </div>
+          )}
+          {ytId && (
+            <div className="flex-none snap-start overflow-hidden rounded-2xl border border-border"
+              style={{ width: "75vw", maxWidth: "20rem" }}>
+              <iframe
+                className="aspect-video w-full"
+                src={`https://www.youtube.com/embed/${ytId}?mute=1&rel=0`}
+                title={app.name}
+                allow="autoplay; encrypted-media"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. Try CTA */}
+      <div className="mt-5">
         {app.platform === "web" ? (
           <Link
             href={`/try/${app.id}`}
-            className="inline-flex h-12 shrink-0 items-center rounded-xl bg-foreground px-6 font-semibold text-background hover:bg-foreground/90"
+            className="flex h-12 w-full items-center justify-center rounded-xl bg-foreground font-semibold text-background hover:bg-foreground/90"
           >
-            Try
+            Try it now →
           </Link>
         ) : app.platform === "cross_platform" ? (
           <div className="flex gap-2">
@@ -168,7 +205,7 @@ export default async function AppDetailPage({
                 href={app.storeUrls.ios}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/90"
+                className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background hover:bg-foreground/90"
               >
                 <ExternalLink className="h-3.5 w-3.5" /> iOS
               </a>
@@ -178,19 +215,17 @@ export default async function AppDetailPage({
                 href={app.storeUrls.android}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/90"
+                className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background hover:bg-foreground/90"
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Android
               </a>
             )}
             {!app.storeUrls?.ios && !app.storeUrls?.android && (
-              // No store URLs on record — fall back to the app's site
-              // (same fallback the feed card uses) so the CTA never vanishes.
               <a
                 href={app.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex h-12 shrink-0 items-center gap-1.5 rounded-xl bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/90"
+                className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background hover:bg-foreground/90"
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Get the app
               </a>
@@ -205,7 +240,7 @@ export default async function AppDetailPage({
             }
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-foreground px-6 font-semibold text-background hover:bg-foreground/90"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-foreground font-semibold text-background hover:bg-foreground/90"
           >
             <ExternalLink className="h-4 w-4" />
             {app.platform === "ios" ? "App Store" : "Google Play"}
@@ -213,24 +248,22 @@ export default async function AppDetailPage({
         )}
       </div>
 
-      <div className="mt-4">
+      {/* 5. Follow + Claim */}
+      <div className="mt-3">
         <FollowAppButton
           appId={app.id}
           appSlug={app.slug}
           initialCount={app.followerCount}
         />
       </div>
-
       {app.status === "unclaimed" && (
         <ClaimButton appId={app.id} appSlug={app.slug} />
       )}
 
-      {app.description && (
-        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-          {app.description}
-        </p>
-      )}
+      {/* 6. Description (collapsible) */}
+      {app.description && <DescriptionExpander text={app.description} />}
 
+      {/* 7. Tags */}
       {(app.tags?.length ?? 0) > 0 && (
         <div className="mt-4 flex flex-wrap gap-1.5">
           {app.tags.map((t) => (
@@ -244,43 +277,109 @@ export default async function AppDetailPage({
         </div>
       )}
 
-      {/* Feedback summary */}
-      <section className="mt-8 rounded-2xl border border-border bg-muted p-5">
-        <h2 className="text-sm font-semibold text-muted-foreground">
-          What testers said
-        </h2>
-        {topTags.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {topTags.map(([tag, n]) => (
-              <span
-                key={tag}
-                className="rounded-full border border-border bg-background px-3 py-1 text-sm"
-              >
-                {TAG_LABELS[tag] ?? tag}{" "}
-                <span className="text-muted-foreground">×{n}</span>
-              </span>
+      {/* 8. Top reviews inline */}
+      {topReviews.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            사람들의 반응
+          </h2>
+          <ul className="mt-3 flex flex-col gap-3">
+            {topReviews.map((r) => (
+              <li key={r.id} className="rounded-2xl border border-border bg-muted p-4">
+                <p className="text-xs font-medium">{r.authorName}</p>
+                <p className="mt-1 line-clamp-3 text-sm">{r.caption}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  ♥ {r.likeCount} · {r.createdAt.toLocaleDateString()}
+                </p>
+              </li>
             ))}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">
-            No feedback yet — be the first to try it.
-          </p>
-        )}
-        <div className="mt-4 grid grid-cols-3 gap-3 text-center text-sm">
-          <Stat label="Tries" value={stats?.tryClicks ?? 0} />
-          <Stat label="Likes" value={stats?.likes ?? 0} />
-          <Stat label="Feedback" value={stats?.feedbackCount ?? 0} />
+          </ul>
+          {posts.filter((p) => p.type === "review").length > 3 && (
+            <Link
+              href={`/app/${app.slug}?tab=reviews`}
+              className="mt-3 inline-block text-sm text-muted-foreground hover:text-foreground"
+            >
+              모든 리뷰 보기 →
+            </Link>
+          )}
+        </section>
+      )}
+
+      {/* 9. Made by — clickable: claimed → internal profile, unclaimed → maker's
+           primary external link (X > website > github). Never a dead-end name. */}
+      <section className="mt-6 flex items-center justify-between rounded-2xl border border-border p-4">
+        <div>
+          <p className="text-xs text-muted-foreground">Made by</p>
+          {app.status === "unclaimed" ? (
+            (() => {
+              const ext =
+                app.makerLinks?.x ??
+                app.makerLinks?.website ??
+                app.makerLinks?.github;
+              return ext ? (
+                <a
+                  href={ext}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-medium hover:underline"
+                >
+                  {app.makerName}
+                  <ExternalLink className="h-3 w-3 opacity-60" />
+                </a>
+              ) : (
+                <p className="font-medium">{app.makerName}</p>
+              );
+            })()
+          ) : (
+            <Link href={`/maker/${app.makerId}`} className="font-medium hover:underline">
+              {app.makerName}
+            </Link>
+          )}
+        </div>
+        <div className="flex gap-3 text-sm text-muted-foreground">
+          {app.makerLinks?.website && (
+            <a
+              href={app.makerLinks.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 hover:text-foreground"
+            >
+              Website <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+          {app.makerLinks?.x && (
+            <a
+              href={app.makerLinks.x}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground"
+            >
+              X
+            </a>
+          )}
+          {app.makerLinks?.github && (
+            <a
+              href={app.makerLinks.github}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground"
+            >
+              GitHub
+            </a>
+          )}
         </div>
       </section>
 
-      {/* Posts: the app's content timeline (official updates + user reviews) */}
+      {/* 10. All posts (secondary — for the curious) */}
       <section className="mt-8">
         <div className="flex gap-2 border-b border-border pb-2 text-sm">
-          {([
-            ["all", "All"],
-            ["official", "Official"],
-            ["reviews", "Reviews"],
-          ] as const).map(([key, label]) => (
+          {(
+            [
+              ["all", "All"],
+              ["official", "Official"],
+              ["reviews", "Reviews"],
+            ] as const
+          ).map(([key, label]) => (
             <Link
               key={key}
               href={key === "all" ? `/app/${app.slug}` : `/app/${app.slug}?tab=${key}`}
@@ -344,62 +443,7 @@ export default async function AppDetailPage({
         )}
       </section>
 
-      {/* Maker */}
-      <section className="mt-6 flex items-center justify-between rounded-2xl border border-border p-4">
-        <div>
-          <p className="text-xs text-muted-foreground">Made by</p>
-          {app.status === "unclaimed" ? (
-            <p className="font-medium">{app.makerName}</p>
-          ) : (
-            <Link href={`/maker/${app.makerId}`} className="font-medium hover:underline">
-              {app.makerName}
-            </Link>
-          )}
-        </div>
-        <div className="flex gap-3 text-sm text-muted-foreground">
-          {app.makerLinks?.website && (
-            <a
-              href={app.makerLinks.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 hover:text-foreground"
-            >
-              Website <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-          {app.makerLinks?.x && (
-            <a
-              href={app.makerLinks.x}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-foreground"
-            >
-              X
-            </a>
-          )}
-          {app.makerLinks?.github && (
-            <a
-              href={app.makerLinks.github}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-foreground"
-            >
-              GitHub
-            </a>
-          )}
-        </div>
-      </section>
-
       <BottomNav />
     </main>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-xl bg-background p-3">
-      <p className="text-lg font-bold">{value.toLocaleString()}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
   );
 }
