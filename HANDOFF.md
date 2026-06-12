@@ -294,3 +294,26 @@ Codex 또는 다음 작업자가 이어서 할 것들. 우선순위 순으로 �
 - D1 쿼리: `getDb()`로 클라이언트 가져오고 Drizzle 사용 (`src/db/index.ts`)
 - 새 페이지: `export const dynamic = "force-dynamic"` (D1 읽어야 하므로)
 - 스키마 변경 시: `pnpm db:generate` → `pnpm db:migrate:local` → 로컬 검증 후 `pnpm db:migrate:remote`
+
+---
+
+## 작업 로그: 2026-06-12 — 네이티브 앱 지원 + 큐레이션 시드 6개 (커밋 cd2fc6c, 배포 0b62ad26)
+
+### 네이티브 앱 (platform 필드)
+- `drizzle/0003_app_platform.sql`: `apps.platform` ('web'|'ios'|'android'|'cross_platform', DEFAULT 'web') + `apps.store_urls` (JSON {ios?, android?})
+- 피드 카드(`AppCard.tsx`)·앱 상세(`app/[slug]/page.tsx`): platform != web이면 Try 대신 "Get on App Store"/"Get on Google Play" 외부 링크 (cross_platform은 두 버튼, 스토어 URL 없으면 "Get the app" → app.url 폴백)
+- `/try/[appId]`: 네이티브 앱은 notFound() (웹 전용). unclaimed 앱은 try 허용으로 수정 (기존 버그)
+- `/api/apps` POST: platform/storeUrlIos/storeUrlAndroid 수락, 네이티브는 embeddable 강제 false
+- `SubmitForm.tsx`: 🌐/🍎/🤖/📱 플랫폼 선택 + 스토어 URL 입력
+- **주의**: `/api/media/[...key]`가 `uploads/` + `curated/` 프리픽스만 서빙 (Fable 리뷰에서 curated 누락 발견·수정)
+
+### 큐레이션 시드 (seed-curated.sql — 로컬·원격 D1 적용 완료)
+- 6개 앱: Lovelee(iOS), Sundaze(iOS), Vugola(web), FULL SEND(web), 82-0(web), BirdsEyes(web)
+- maker_id='glim-system', status='unclaimed', INSERT OR IGNORE (재실행 안전)
+- 스크린샷 11장 R2 `curated/<slug>/NN.png` 미러링 완료 (외부 사이트 다운로드 + Playwright 직접 캡처)
+- Grok 추천 10개 중 4개 탈락: Catie Jump(URL 미존재), Lambo Levels(미디어 0), Phraseum(로고뿐), Taste(2018 스타트업, vibe-coded 아님)
+- 다음 단계: 메이커 X DM으로 클레임 유도 (maker_links에 X 핸들 저장됨, 82-0은 @EightyTwoAndO)
+
+### 모델 라우팅 (이 세션의 운영 방식)
+- 리서치: Sonnet 에이전트 2개 병렬 / 구현: Sonnet 직접 / 리뷰+시드 SQL: Fable 5 에이전트
+- Fable이 잡은 것: media route curated 프리픽스 블로커, /try unclaimed 404, cross_platform CTA 공백, /saved unclaimed 누락
