@@ -5,6 +5,7 @@ import { getDb, schema } from "@/db";
 import { getSessionUser } from "@/lib/auth";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { UserMenu } from "@/components/UserMenu";
+import { BottomNav } from "@/components/BottomNav";
 import { SavedGrid, EmptySaved, type SavedCardData } from "@/components/SavedGrid";
 import { AnonymousSaved } from "@/components/AnonymousSaved";
 
@@ -60,7 +61,7 @@ export default async function SavedPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-5 py-6">
+    <main className="mx-auto max-w-5xl px-5 py-6 pb-24">
       <div className="flex items-center justify-between gap-2">
         <Link
           href="/"
@@ -96,6 +97,7 @@ export default async function SavedPage() {
           </div>
         </>
       )}
+      <BottomNav />
     </main>
   );
 }

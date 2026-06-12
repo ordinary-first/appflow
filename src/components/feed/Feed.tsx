@@ -1,16 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { Plus, LayoutDashboard, Bookmark } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppCard } from "./AppCard";
+import { BottomNav } from "@/components/BottomNav";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import { Dialog } from "@/components/ui/dialog";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
-import { UserMenu } from "@/components/UserMenu";
 import { useSession } from "@/lib/auth-client";
 import { track } from "@/lib/track";
+import { cn } from "@/lib/utils";
 import type { FeedItem } from "@/lib/types";
+
+type FeedTab = "foryou" | "following" | "categories";
 
 const LIKES_KEY = "glim_likes";
 const SAVES_KEY = "glim_saves";
@@ -31,6 +32,8 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
   const { data: session } = useSession();
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [tab, setTab] = useState<FeedTab>("foryou");
+  const [category, setCategory] = useState<string | null>(null);
   const [liked, setLiked] = useState<Set<string>>(new Set());
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [feedbackApp, setFeedbackApp] = useState<{ id: string; name: string } | null>(null);
@@ -39,6 +42,20 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
   const completedRef = useRef<Set<string>>(new Set());
   const impressionsRef = useRef<Set<string>>(new Set());
   const prevActiveRef = useRef(0);
+
+  const categories = useMemo(
+    () => [...new Set(apps.map((a) => a.category))].sort(),
+    [apps]
+  );
+  // 'categories' tab filters the loaded feed client-side (v1); the
+  // 'following' tab gets a real server feed in Phase 4.
+  const visibleApps = useMemo(() => {
+    if (tab === "categories" && category) {
+      return apps.filter((a) => a.category === category);
+    }
+    if (tab === "following") return [];
+    return apps;
+  }, [apps, tab, category]);
 
   useEffect(() => {
     setLiked(loadSet(LIKES_KEY));
@@ -70,14 +87,14 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
           setActiveIndex((prev) => {
             if (idx !== prev) {
               // Leaving a card before its video completed = skip signal.
-              const prevApp = apps[prev];
+              const prevApp = visibleApps[prev];
               if (prevApp && !completedRef.current.has(prevApp.id)) {
                 track(prevApp.id, "skip", undefined, { once: true });
               }
             }
             return idx;
           });
-          const app = apps[idx];
+          const app = visibleApps[idx];
           if (app && !impressionsRef.current.has(app.id)) {
             impressionsRef.current.add(app.id);
             track(app.id, "impression", undefined, { once: true });
@@ -88,7 +105,13 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
     );
     cards.forEach((c) => observer.observe(c));
     return () => observer.disconnect();
-  }, [apps]);
+  }, [visibleApps]);
+
+  // Switching tab/category rebuilds the card list — reset scroll position.
+  useEffect(() => {
+    setActiveIndex(0);
+    containerRef.current?.scrollTo({ top: 0 });
+  }, [tab, category]);
 
   // Keyboard navigation (desktop).
   useEffect(() => {
@@ -168,43 +191,57 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-black">
-      {/* Minimal top bar: just the logo + submit/dashboard. No landing copy. */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-center justify-between p-4">
-        <span className="text-lg font-bold tracking-tight">Glim</span>
-        <nav className="pointer-events-auto flex items-center gap-2">
-          <Link
-            href="/submit"
-            className="flex h-9 items-center gap-1.5 rounded-full border border-border bg-black/50 px-3 text-sm backdrop-blur transition hover:bg-muted"
-          >
-            <Plus className="h-4 w-4" /> Submit
-          </Link>
-          <Link
-            href="/saved"
-            aria-label="Saved"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-black/50 backdrop-blur transition hover:bg-muted"
-          >
-            <Bookmark className="h-4 w-4" />
-          </Link>
-          {session?.user && (
-            <>
-              <Link
-                href="/dashboard"
-                aria-label="Dashboard"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-black/50 backdrop-blur transition hover:bg-muted"
+      {/* Top: centered feed tabs (TikTok-style), logo tucked left. */}
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-40 p-4">
+        <div className="relative flex items-center justify-center">
+          <span className="absolute left-0 text-lg font-bold tracking-tight">
+            Glim
+          </span>
+          <nav className="pointer-events-auto flex items-center gap-5 text-[15px] font-semibold">
+            <TopTab active={tab === "foryou"} onClick={() => setTab("foryou")}>
+              For You
+            </TopTab>
+            <TopTab
+              active={tab === "following"}
+              onClick={() => setTab("following")}
+            >
+              Following
+            </TopTab>
+            <TopTab
+              active={tab === "categories"}
+              onClick={() => setTab("categories")}
+            >
+              Categories
+            </TopTab>
+          </nav>
+        </div>
+
+        {/* Category chips — only on the Categories tab */}
+        {tab === "categories" && (
+          <div className="pointer-events-auto mt-3 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(category === c ? null : c)}
+                className={cn(
+                  "flex-none rounded-full border px-3 py-1 text-xs font-medium transition cursor-pointer",
+                  category === c
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-black/50 text-muted-foreground backdrop-blur hover:text-foreground"
+                )}
               >
-                <LayoutDashboard className="h-4 w-4" />
-              </Link>
-              <UserMenu variant="overlay" />
-            </>
-          )}
-        </nav>
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       {/* The vertical snap feed */}
       <div ref={containerRef} className="feed-snap h-dvh overflow-y-scroll">
-        {apps.map((app, i) => (
+        {visibleApps.map((app, i) => (
           <AppCard
-            key={app.id}
+            key={app.postId}
             app={app}
             active={i === activeIndex}
             liked={liked.has(app.id)}
@@ -216,18 +253,39 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
             onVideoComplete={() => completedRef.current.add(app.id)}
           />
         ))}
-        {apps.length === 0 && (
+        {visibleApps.length === 0 && tab === "following" && (
+          <div className="flex h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
+            <p className="text-lg font-semibold">Nothing here yet.</p>
+            <p className="text-sm text-muted-foreground">
+              {session?.user
+                ? "Follow apps and makers to see their updates here."
+                : "Sign in and follow apps to see their updates here."}
+            </p>
+            {!session?.user && (
+              <div className="mt-2 w-full max-w-xs">
+                <GoogleSignIn />
+              </div>
+            )}
+          </div>
+        )}
+        {visibleApps.length === 0 && tab === "categories" && (
+          <div className="flex h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
+            <p className="text-lg font-semibold">
+              {category ? `No ${category} apps yet.` : "Pick a category above."}
+            </p>
+          </div>
+        )}
+        {visibleApps.length === 0 && tab === "foryou" && (
           <div className="flex h-dvh flex-col items-center justify-center gap-3 text-center">
             <p className="text-lg font-semibold">No apps yet.</p>
             <p className="text-sm text-muted-foreground">
               Run the seed script, or be the first to submit.
             </p>
-            <Link href="/submit" className="underline">
-              Submit your app →
-            </Link>
           </div>
         )}
       </div>
+
+      <BottomNav />
 
       <FeedbackModal
         app={feedbackApp}
@@ -265,10 +323,34 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
       </Dialog>
 
       {toast && (
-        <div className="absolute bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background">
+        <div className="absolute bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background">
           {toast}
         </div>
       )}
     </div>
+  );
+}
+
+function TopTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "relative pb-1 transition cursor-pointer",
+        active
+          ? "text-foreground after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-foreground"
+          : "text-foreground/50 hover:text-foreground/80"
+      )}
+    >
+      {children}
+    </button>
   );
 }

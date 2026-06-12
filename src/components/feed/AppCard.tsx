@@ -114,8 +114,9 @@ export function AppCard({
       )}
 
       {/* ---- bottom gradient + info ---- */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/90 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-16 p-5 pb-7">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/90 to-transparent" />
+      {/* pb-20 keeps the Try button clear of the fixed bottom nav */}
+      <div className="absolute bottom-0 left-0 right-16 p-5 pb-20">
         <span className="inline-block rounded-full border border-border bg-black/50 px-2.5 py-0.5 text-xs text-muted-foreground">
           {app.category}
         </span>
@@ -136,7 +137,7 @@ export function AppCard({
       </div>
 
       {/* ---- right action rail ---- */}
-      <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
+      <div className="absolute bottom-36 right-3 flex flex-col items-center gap-5">
         <RailButton
           label={String(app.likes + (liked ? 1 : 0))}
           onClick={onLike}
