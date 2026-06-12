@@ -1,5 +1,5 @@
 import { Feed } from "@/components/feed/Feed";
-import { getFeedApps } from "@/lib/feed";
+import { getFeedPosts } from "@/lib/feed";
 import type { FeedItem } from "@/lib/types";
 
 // The feed reads D1 per request — never statically generated.
@@ -8,22 +8,30 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   let items: FeedItem[] = [];
   try {
-    const apps = await getFeedApps(40);
-    items = apps.map((a) => ({
-      id: a.id,
-      slug: a.slug,
-      name: a.name,
-      tagline: a.tagline,
-      category: a.category,
-      url: a.url,
-      demoVideoUrl: a.demoVideoUrl,
-      youtubeUrl: a.youtubeUrl,
-      thumbnailUrl: a.thumbnailUrl,
-      makerName: a.makerName,
-      embeddable: a.embeddable,
-      likes: a.stats.likes,
-      saves: a.stats.saves,
-      feedbackCount: a.stats.feedbackCount,
+    const entries = await getFeedPosts(40);
+    items = entries.map(({ post, app, stats }) => ({
+      postId: post.id,
+      id: app.id,
+      slug: app.slug,
+      name: app.name,
+      tagline: post.caption ?? app.tagline,
+      category: app.category,
+      url: app.url,
+      mediaType: post.mediaType,
+      demoVideoUrl: post.videoUrl,
+      youtubeUrl: app.youtubeUrl,
+      imageUrls: post.imageUrls ?? null,
+      thumbnailUrl: post.thumbnailUrl ?? app.thumbnailUrl,
+      makerName: app.makerName,
+      embeddable: app.embeddable,
+      // Interim display source: interactions stats (the client still writes
+      // likes/saves via track()). Migration COPIED legacy rows into
+      // likes/saves, so stats covers full history without double counting.
+      // Phase 4/5 switch the write path and the display to the cached
+      // post.likeCount / app.saveCount columns.
+      likes: stats.likes,
+      saves: stats.saves,
+      feedbackCount: stats.feedbackCount,
     }));
   } catch {
     // DB not migrated yet — render the empty state instead of crashing.

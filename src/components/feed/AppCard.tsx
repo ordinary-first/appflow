@@ -65,11 +65,28 @@ export function AppCard({
   };
 
   const ytId = !app.demoVideoUrl && app.youtubeUrl ? youtubeVideoId(app.youtubeUrl) : null;
+  const isSlideshow =
+    app.mediaType === "images" && (app.imageUrls?.length ?? 0) > 0;
 
   return (
     <section className="relative h-dvh w-full overflow-hidden bg-black">
       {/* ---- media ---- */}
-      {app.demoVideoUrl ? (
+      {isSlideshow ? (
+        <ImageSlideshow
+          images={app.imageUrls!}
+          alt={app.name}
+          active={active}
+          onViewedAll={() => {
+            // Seeing every slide counts as a completed view (the slideshow
+            // equivalent of watching the video to the end).
+            if (!completedRef.current) {
+              completedRef.current = true;
+              track(app.id, "video_complete", undefined, { once: true });
+              onVideoComplete();
+            }
+          }}
+        />
+      ) : app.demoVideoUrl ? (
         <video
           ref={videoRef}
           src={app.demoVideoUrl}
@@ -146,6 +163,120 @@ export function AppCard({
         <RailButton label="Share" onClick={onShare} icon={<Share2 className="h-7 w-7" />} />
       </div>
     </section>
+  );
+}
+
+/**
+ * TikTok-photo-mode style slideshow: horizontal swipe (scroll-snap) plus
+ * tap left/right thirds to navigate. Progress bars at the top. Calls
+ * onViewedAll once every slide has been seen.
+ */
+function ImageSlideshow({
+  images,
+  alt,
+  active,
+  onViewedAll,
+}: {
+  images: string[];
+  alt: string;
+  active: boolean;
+  onViewedAll: () => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [index, setIndex] = useState(0);
+  const seenRef = useRef<Set<number>>(new Set([0]));
+  const firedRef = useRef(false);
+
+  const markSeen = (i: number) => {
+    setIndex(i);
+    seenRef.current.add(i);
+    if (!firedRef.current && seenRef.current.size >= images.length) {
+      firedRef.current = true;
+      onViewedAll();
+    }
+  };
+
+  const goTo = (i: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(images.length - 1, i));
+    // Instant jump: smooth scrollTo() gets cancelled by snap-mandatory in
+    // Chromium (the snap pulls it back to the current slide). Direct
+    // assignment lands exactly on the target snap point. State is updated
+    // here too, so tap navigation never depends on scroll events.
+    el.scrollLeft = clamped * el.clientWidth;
+    markSeen(clamped);
+  };
+
+  // Handles user swipes (touch/trackpad); taps already update state in goTo.
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const i = Math.round(el.scrollLeft / el.clientWidth);
+    if (i !== index) markSeen(i);
+  };
+
+  // Single image counts as fully viewed immediately when the card activates.
+  useEffect(() => {
+    if (active && images.length === 1 && !firedRef.current) {
+      firedRef.current = true;
+      onViewedAll();
+    }
+  }, [active, images.length, onViewedAll]);
+
+  return (
+    <div className="absolute inset-0">
+      <div
+        ref={trackRef}
+        onScroll={onScroll}
+        className="flex h-full w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden scrollbar-none"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {images.map((src, i) => (
+          <div
+            key={i}
+            className="flex h-full w-full flex-none snap-center items-center justify-center"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- R2/maker-supplied media */}
+            <img
+              src={src}
+              alt={`${alt} — ${i + 1}/${images.length}`}
+              className="h-full w-full object-contain"
+              loading={active || i === 0 ? "eager" : "lazy"}
+              draggable={false}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* tap zones: left third = prev, right third = next */}
+      {images.length > 1 && (
+        <>
+          <button
+            aria-label="Previous image"
+            className="absolute inset-y-0 left-0 w-1/3"
+            onClick={() => goTo(index - 1)}
+          />
+          <button
+            aria-label="Next image"
+            className="absolute inset-y-0 right-0 w-1/3"
+            onClick={() => goTo(index + 1)}
+          />
+          {/* progress bars (TikTok photo-mode style) */}
+          <div className="pointer-events-none absolute inset-x-4 top-3 z-10 flex gap-1.5">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-0.5 flex-1 rounded-full transition-colors",
+                  i === index ? "bg-white" : "bg-white/30"
+                )}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

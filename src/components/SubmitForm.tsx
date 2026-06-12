@@ -29,12 +29,29 @@ async function uploadFile(file: File): Promise<string> {
   return data.url;
 }
 
+const MAX_IMAGES = 5;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB per screenshot
+
 export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mediaMode, setMediaMode] = useState<"video" | "images">("video");
   const [video, setVideo] = useState<File | null>(null);
+  const [images, setImages] = useState<File[]>([]);
   const [thumb, setThumb] = useState<File | null>(null);
+
+  const onPickImages = (files: FileList | null) => {
+    if (!files) return;
+    const picked = Array.from(files).slice(0, MAX_IMAGES);
+    const oversize = picked.find((f) => f.size > MAX_IMAGE_BYTES);
+    if (oversize) {
+      setError(`"${oversize.name}" is over 5MB — please compress it.`);
+      return;
+    }
+    setError(null);
+    setImages(picked);
+  };
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,11 +61,19 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
 
     try {
       const youtubeUrl = String(fd.get("youtubeUrl") ?? "").trim();
-      if (!video && !youtubeUrl) {
+      if (mediaMode === "video" && !video && !youtubeUrl) {
         throw new Error("Upload a 15-second demo video (recommended) or add a YouTube URL.");
       }
+      if (mediaMode === "images" && images.length === 0) {
+        throw new Error("Add 1–5 screenshots of your app.");
+      }
 
-      const demoVideoUrl = video ? await uploadFile(video) : null;
+      const demoVideoUrl =
+        mediaMode === "video" && video ? await uploadFile(video) : null;
+      const imageUrls =
+        mediaMode === "images"
+          ? await Promise.all(images.map((f) => uploadFile(f)))
+          : [];
       const thumbnailUrl = thumb ? await uploadFile(thumb) : null;
 
       const res = await fetch("/api/apps", {
@@ -65,7 +90,8 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
             .map((t) => t.trim())
             .filter(Boolean),
           demoVideoUrl,
-          youtubeUrl: youtubeUrl || undefined,
+          youtubeUrl: (mediaMode === "video" && youtubeUrl) || undefined,
+          imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
           thumbnailUrl,
           makerName: fd.get("makerName") || undefined,
           makerWebsite: fd.get("makerWebsite") || undefined,
@@ -127,19 +153,58 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
         </Field>
       </div>
 
-      <Field
-        label="15-second demo video (mp4/webm) — recommended"
-        hint="Hosted on Glim (R2): no ads, no branding. YouTube below is a fallback and may show ads."
-      >
-        <Input
-          type="file"
-          accept="video/mp4,video/webm"
-          onChange={(e) => setVideo(e.target.files?.[0] ?? null)}
-        />
-      </Field>
-      <Field label="YouTube URL (fallback)">
-        <Input name="youtubeUrl" placeholder="https://youtube.com/watch?v=…" />
-      </Field>
+      {/* ---- demo media: video or screenshot slideshow ---- */}
+      <div className="space-y-3 rounded-xl border border-border bg-muted p-4">
+        <Label>Demo media *</Label>
+        <div className="flex gap-2">
+          <MediaModeButton
+            active={mediaMode === "video"}
+            onClick={() => setMediaMode("video")}
+            label="🎬 Video"
+          />
+          <MediaModeButton
+            active={mediaMode === "images"}
+            onClick={() => setMediaMode("images")}
+            label="🖼 Screenshots"
+          />
+        </div>
+
+        {mediaMode === "video" ? (
+          <>
+            <Field
+              label="15-second demo video (mp4/webm) — recommended"
+              hint="Hosted on Glim (R2): no ads, no branding. YouTube below is a fallback and may show ads."
+            >
+              <Input
+                type="file"
+                accept="video/mp4,video/webm"
+                onChange={(e) => setVideo(e.target.files?.[0] ?? null)}
+              />
+            </Field>
+            <Field label="YouTube URL (fallback)">
+              <Input name="youtubeUrl" placeholder="https://youtube.com/watch?v=…" />
+            </Field>
+          </>
+        ) : (
+          <Field
+            label={`Screenshots (1–${MAX_IMAGES}, png/jpg/webp, ≤5MB each)`}
+            hint="No video needed — your screenshots become a swipeable slideshow in the feed. The first one is the thumbnail."
+          >
+            <Input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              onChange={(e) => onPickImages(e.target.files)}
+            />
+            {images.length > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {images.length} image{images.length > 1 ? "s" : ""} selected:{" "}
+                {images.map((f) => f.name).join(", ")}
+              </p>
+            )}
+          </Field>
+        )}
+      </div>
       <Field label="Thumbnail (png/jpg/webp)">
         <Input
           type="file"
@@ -175,6 +240,31 @@ export function SubmitForm({ defaultMakerName }: { defaultMakerName: string }) {
         {busy ? "Publishing…" : "Publish to the feed"}
       </Button>
     </form>
+  );
+}
+
+function MediaModeButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition cursor-pointer " +
+        (active
+          ? "border-foreground bg-foreground text-background"
+          : "border-border bg-background text-muted-foreground hover:text-foreground")
+      }
+    >
+      {label}
+    </button>
   );
 }
 

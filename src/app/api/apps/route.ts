@@ -80,12 +80,20 @@ export async function POST(req: Request) {
 
   const demoVideoUrl = body.demoVideoUrl ? String(body.demoVideoUrl) : null;
   const youtubeUrl = body.youtubeUrl ? String(body.youtubeUrl) : null;
-  if (!demoVideoUrl && !youtubeUrl) {
+  const imageUrls = Array.isArray(body.imageUrls)
+    ? (body.imageUrls as unknown[])
+        .map((u) => String(u).trim())
+        .filter(Boolean)
+        .slice(0, 5)
+    : [];
+  if (!demoVideoUrl && !youtubeUrl && imageUrls.length === 0) {
     return NextResponse.json(
-      { error: "a demo video (upload or YouTube URL) is required" },
+      { error: "a demo video (upload or YouTube URL) or 1–5 screenshots are required" },
       { status: 400 }
     );
   }
+  const mediaType: "video" | "images" =
+    demoVideoUrl || youtubeUrl ? "video" : "images";
 
   const db = await getDb();
 
@@ -108,6 +116,10 @@ export async function POST(req: Request) {
     ? (body.tags as unknown[]).map((t) => String(t).trim()).filter(Boolean).slice(0, 8)
     : [];
 
+  const thumbnailUrl = body.thumbnailUrl
+    ? String(body.thumbnailUrl)
+    : imageUrls[0] ?? null; // slideshow: first screenshot doubles as thumbnail
+
   await db.insert(schema.apps).values({
     id,
     slug,
@@ -117,7 +129,7 @@ export async function POST(req: Request) {
     url,
     demoVideoUrl,
     youtubeUrl,
-    thumbnailUrl: body.thumbnailUrl ? String(body.thumbnailUrl) : null,
+    thumbnailUrl,
     category,
     tags,
     makerId: user.id, // ownership comes from the verified session, never the body
@@ -133,6 +145,22 @@ export async function POST(req: Request) {
     status: "published",
     createdAt: now,
     updatedAt: now,
+  });
+
+  // Every app is born with its first official post — the feed card.
+  // (Posts model: apps are identity, posts are content.)
+  await db.insert(schema.posts).values({
+    id: `post-${id}`,
+    appId: id,
+    authorId: user.id,
+    type: "official",
+    status: "published",
+    mediaType,
+    videoUrl: demoVideoUrl,
+    imageUrls: mediaType === "images" ? imageUrls : null,
+    thumbnailUrl,
+    caption: tagline.slice(0, 120),
+    createdAt: now,
   });
 
   return NextResponse.json({ ok: true, id, slug });

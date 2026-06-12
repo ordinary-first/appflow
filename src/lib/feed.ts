@@ -1,6 +1,6 @@
-import { count, eq, sql } from "drizzle-orm";
+import { count, eq, inArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/db";
-import type { AppRow } from "@/db/schema";
+import type { AppRow, PostRow } from "@/db/schema";
 
 export type AppStats = {
   views: number;
@@ -18,6 +18,9 @@ export type AppStats = {
 };
 
 export type FeedApp = AppRow & { stats: AppStats };
+
+/** A feed entry under the posts model: one post + its app + app stats. */
+export type FeedPost = { post: PostRow; app: AppRow; stats: AppStats };
 
 function emptyStats(): AppStats {
   return {
@@ -129,24 +132,29 @@ export async function getAppStats(): Promise<Map<string, AppStats>> {
 }
 
 /**
- * MVP feed mix: 30% popular (by App Score) + 30% recent + 40% random,
- * interleaved and deduped. No personalization/ML — interaction logs are
- * structured so it can be added later.
+ * Posts-model feed: each card is a post (official update or user review)
+ * joined to its app. Mix is 30% popular (by App Score) + 30% recent +
+ * 40% random, interleaved and deduped per post. Apps in 'unclaimed' status
+ * appear in the feed (cold-start curation); 'hidden' apps never do.
  */
-export async function getFeedApps(limit = 40): Promise<FeedApp[]> {
+export async function getFeedPosts(limit = 40): Promise<FeedPost[]> {
   const db = await getDb();
-  const [published, statsMap] = await Promise.all([
+  const [rows, statsMap] = await Promise.all([
     db
-      .select()
-      .from(schema.apps)
-      .where(eq(schema.apps.status, "published"))
-      .orderBy(sql`${schema.apps.createdAt} desc`),
+      .select({ post: schema.posts, app: schema.apps })
+      .from(schema.posts)
+      .innerJoin(schema.apps, eq(schema.posts.appId, schema.apps.id))
+      .where(
+        sql`${schema.posts.status} = 'published' AND ${schema.apps.status} IN ('published', 'unclaimed')`
+      )
+      .orderBy(sql`${schema.posts.createdAt} desc`),
     getAppStats(),
   ]);
 
-  const withStats: FeedApp[] = published.map((a) => ({
-    ...a,
-    stats: statsMap.get(a.id) ?? emptyStats(),
+  const withStats: FeedPost[] = rows.map((r) => ({
+    post: r.post,
+    app: r.app,
+    stats: statsMap.get(r.app.id) ?? emptyStats(),
   }));
 
   const popular = [...withStats].sort((a, b) => b.stats.score - a.stats.score);
@@ -160,15 +168,15 @@ export async function getFeedApps(limit = 40): Promise<FeedApp[]> {
     random: n, // random fills the rest
   };
 
-  const out: FeedApp[] = [];
+  const out: FeedPost[] = [];
   const used = new Set<string>();
-  const take = (pool: FeedApp[], max: number) => {
+  const take = (pool: FeedPost[], max: number) => {
     let taken = 0;
-    for (const app of pool) {
+    for (const item of pool) {
       if (out.length >= n || taken >= max) break;
-      if (used.has(app.id)) continue;
-      used.add(app.id);
-      out.push(app);
+      if (used.has(item.post.id)) continue;
+      used.add(item.post.id);
+      out.push(item);
       taken++;
     }
   };
@@ -181,4 +189,17 @@ export async function getFeedApps(limit = 40): Promise<FeedApp[]> {
   // but keep the first slot biased to a high-score app.
   const [first, ...rest] = out;
   return first ? [first, ...rest.sort(() => Math.random() - 0.5)] : out;
+}
+
+/** Batch like counts for a set of posts (cached column is authoritative for v1). */
+export async function getPostLikeCounts(
+  postIds: string[]
+): Promise<Map<string, number>> {
+  if (postIds.length === 0) return new Map();
+  const db = await getDb();
+  const rows = await db
+    .select({ id: schema.posts.id, likeCount: schema.posts.likeCount })
+    .from(schema.posts)
+    .where(inArray(schema.posts.id, postIds));
+  return new Map(rows.map((r) => [r.id, r.likeCount]));
 }
