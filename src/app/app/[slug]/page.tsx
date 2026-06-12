@@ -5,6 +5,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { getDb, schema } from "@/db";
 import { getAppStats } from "@/lib/feed";
+import { getTryTargets } from "@/lib/try-target";
+import { TryLink } from "@/components/TryLink";
 import { youtubeVideoId, cn } from "@/lib/utils";
 import { ClaimButton } from "@/components/ClaimButton";
 import { FollowAppButton } from "@/components/FollowAppButton";
@@ -190,74 +192,21 @@ export default async function AppDetailPage({
         </div>
       )}
 
-      {/* 4. Try CTA */}
-      <div className="mt-5">
-        {app.platform === "web" ? (
-          app.embeddable ? (
-            <Link
-              href={`/try/${app.id}`}
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-foreground font-semibold text-background hover:bg-foreground/90"
-            >
-              Try it now →
-            </Link>
-          ) : (
-            <a
-              href={app.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-foreground font-semibold text-background hover:bg-foreground/90"
-            >
-              Try it now <ExternalLink className="h-4 w-4" />
-            </a>
-          )
-        ) : app.platform === "cross_platform" ? (
-          <div className="flex gap-2">
-            {app.storeUrls?.ios && (
-              <a
-                href={app.storeUrls.ios}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background hover:bg-foreground/90"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> iOS
-              </a>
-            )}
-            {app.storeUrls?.android && (
-              <a
-                href={app.storeUrls.android}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background hover:bg-foreground/90"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> Android
-              </a>
-            )}
-            {!app.storeUrls?.ios && !app.storeUrls?.android && (
-              <a
-                href={app.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background hover:bg-foreground/90"
-              >
-                <ExternalLink className="h-3.5 w-3.5" /> Get the app
-              </a>
-            )}
-          </div>
-        ) : (
-          <a
-            href={
-              app.platform === "ios"
-                ? (app.storeUrls?.ios ?? app.url)
-                : (app.storeUrls?.android ?? app.url)
-            }
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-foreground font-semibold text-background hover:bg-foreground/90"
+      {/* 4. Try CTA — getTryTargets is the single source for platform ×
+          embeddable routing; TryLink records try_click on external opens
+          (previously external opens vanished from the stats). */}
+      <div className="mt-5 flex gap-2">
+        {getTryTargets(app).map((target) => (
+          <TryLink
+            key={target.href}
+            appId={app.id}
+            target={target}
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-foreground font-semibold text-background hover:bg-foreground/90"
           >
-            <ExternalLink className="h-4 w-4" />
-            {app.platform === "ios" ? "App Store" : "Google Play"}
-          </a>
-        )}
+            {target.external && <ExternalLink className="h-4 w-4" />}
+            {app.platform === "web" ? "Try it now →" : target.label}
+          </TryLink>
+        ))}
       </div>
 
       {/* 5. Follow + Claim */}

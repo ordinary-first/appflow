@@ -266,6 +266,8 @@ Codex 또는 다음 작업자가 이어서 할 것들. 우선순위 순으로 �
 
 ---
 
+| 2026-06-13 | Claude (claude-fable-5) | `claude/keen-noether-23jwsg` | **Platform 1a: 신뢰 기반 수리 (커밋 e862a4f).** CEO 리뷰(SCOPE EXPANSION, 확장 6종 채택) + Eng 리뷰(Codex 22건 흡수) → 플랜 `docs/designs/platform-stabilization-growth.md`. 구현: ① 좋아요/저장을 likes/saves 실테이블 intent 토글로 전환 (`/api/likes` 로그인 필수·포스트 단위, `/api/saves` 익명 허용·앱 단위, `db.batch` + COUNT 재계산, 공용 `runToggleBatch`) ② anonymousId 서버 결정 — HKDF(BETTER_AUTH_SECRET, glim-anon-v1) HMAC 서명 쿠키, body 신뢰 제거 (`lib/anon.ts` 삭제), merge도 쿠키 기준 + saves 병합 ③ `[[ratelimits]]` GA 바인딩 (RL_WRITE, IP 키, dev no-op) ④ auth fail-closed (`[vars] ENVIRONMENT`) ⑤ App Score identity dedupe (u:/a: 프리픽스) + type 허용목록 + getAppStats appId 스코핑 ⑥ 피드 SSR likedByMe/savedByMe/followedByMe 하이드레이션 + 후보풀 LIMIT 200 ⑦ /saved가 saves 테이블 읽음 (취소 즉시 반영) ⑧ commentCount 재계산 전환 ⑨ FeedbackModal res.ok+에러표시+IME 가드 ⑩ drizzle/0005 백필 (FK EXISTS 가드, 익명 like 드랍) + 0006 meta catch-up (no-op, `db:generate` 부활 — 빈 diff 확인) ⑪ vitest+better-sqlite3 진실성 테스트 17개 전부 통과. **원격 D1**: 백업(`~/glim-backups/`) → d1_migrations 0003·0004 이미 정상(드리프트 기복구 확인) → 0005·0006 적용, preflight=postflight(likes 1=1), 구조 diff 게이트 원격=로컬 44객체 일치. WSL 잔재 stash(`pre-1a-pull leftovers`) + 차단 untracked 3개 `~/glim-backups/untracked-20260613/`로 이동. **남은 것: 1b(클라이언트 UX: 비디오 윈도잉, CommentsSheet 에러+IME, Try CTA 공통화), 1c(접근성/위생/알림 페이지 수리/업로드 25MB), Part 2(검색·대시보드2.0·피드백→리뷰·아웃리치·배지·트렌딩).** |
+
 ## 11. Codex에게 이어서 맡기는 작업
 
 아래 작업을 우선적으로 진행해줘. **각 작업 완료 후 위 "10. 작업 로그"에 날짜/작업자/내용을 추가하고 브랜치(`claude/keen-noether-23jwsg`)에 커밋·푸시하라.** Claude로 다시 세션이 넘어올 수 있으니 로그가 정확해야 한다.

@@ -283,6 +283,9 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
       setShowNudge(true);
       return;
     }
+    const key = `follow:${app.id}`;
+    if (pendingRef.current.has(key)) return;
+    pendingRef.current.add(key);
     // Optimistic toggle; revert on failure.
     const wasFollowing = followedApps.has(app.id);
     setFollowedApps((prev) => {
@@ -309,6 +312,9 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
         else next.delete(app.id);
         return next;
       });
+      failToast();
+    } finally {
+      pendingRef.current.delete(key);
     }
   };
 
@@ -383,6 +389,7 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
             key={app.postId}
             app={app}
             active={i === activeIndex}
+            near={Math.abs(i - activeIndex) <= 1}
             liked={liked.has(app.postId)}
             saved={saved.has(app.id)}
             followed={followedApps.has(app.id)}

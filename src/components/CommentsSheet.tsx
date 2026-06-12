@@ -23,6 +23,7 @@ export function CommentsSheet({
   const [body, setBody] = useState("");
   const [replyTo, setReplyTo] = useState<CommentDTO | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export function CommentsSheet({
       setComments(null);
       setBody("");
       setReplyTo(null);
+      setError(null);
       return;
     }
     let cancelled = false;
@@ -58,6 +60,7 @@ export function CommentsSheet({
     const text = body.trim();
     if (!text || busy) return;
     setBusy(true);
+    setError(null);
     try {
       const res = await fetch("/api/comments", {
         method: "POST",
@@ -68,12 +71,16 @@ export function CommentsSheet({
           parentId: replyTo?.id ?? undefined,
         }),
       });
-      if (res.ok) {
-        const data = (await res.json()) as { comment: CommentDTO };
-        setComments((prev) => [...(prev ?? []), data.comment]);
-        setBody("");
-        setReplyTo(null);
+      if (!res.ok) {
+        setError("댓글 전송에 실패했어요. 잠시 후 다시 시도해주세요.");
+        return; // keep the draft — never silently drop what the user typed
       }
+      const data = (await res.json()) as { comment: CommentDTO };
+      setComments((prev) => [...(prev ?? []), data.comment]);
+      setBody("");
+      setReplyTo(null);
+    } catch {
+      setError("네트워크 오류예요. 연결을 확인하고 다시 시도해주세요.");
     } finally {
       setBusy(false);
     }
@@ -133,6 +140,11 @@ export function CommentsSheet({
         <div className="border-t border-border px-5 py-3" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}>
           {session?.user ? (
             <>
+              {error && (
+                <p className="mb-1.5 text-xs text-red-400" role="alert">
+                  {error}
+                </p>
+              )}
               {replyTo && (
                 <p className="mb-1.5 flex items-center gap-2 text-xs text-muted-foreground">
                   Replying to {replyTo.author.name}
@@ -150,7 +162,9 @@ export function CommentsSheet({
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") submit();
+                    // isComposing: Hangul/IME composition-confirm Enter must
+                    // not post the comment mid-word.
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
                   }}
                   maxLength={1000}
                   placeholder={replyTo ? "Write a reply…" : "Add a comment…"}

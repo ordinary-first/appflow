@@ -5,16 +5,21 @@ import Link from "next/link";
 import { Heart, Bookmark, Share2, MessageSquare, Play, Plus, Check, ExternalLink } from "lucide-react";
 import { track } from "@/lib/track";
 import { youtubeVideoId, cn } from "@/lib/utils";
+import { getTryTargets } from "@/lib/try-target";
+import { TryLink } from "@/components/TryLink";
 import type { FeedItem } from "@/lib/types";
 
 /**
  * One full-viewport feed card: looping 15s demo (R2 mp4 preferred,
  * YouTube embed fallback) or screenshot slideshow, app info overlay,
- * Try CTA, action rail. Only the active card plays/loads media.
+ * Try CTA, action rail. Only the active card plays; only near cards
+ * (active ± 1) mount a <video> at all — the rest show the poster, so a
+ * 30-card feed doesn't hold 30 video decoders alive on a phone.
  */
 export function AppCard({
   app,
   active,
+  near,
   liked,
   saved,
   followed,
@@ -27,6 +32,7 @@ export function AppCard({
 }: {
   app: FeedItem;
   active: boolean;
+  near: boolean;
   liked: boolean;
   saved: boolean;
   followed: boolean;
@@ -72,15 +78,9 @@ export function AppCard({
     }
   };
 
-  // Primary action target — mirrors the bottom CTA's platform logic.
-  const tryHref =
-    app.platform === "web"
-      ? `/try/${app.id}`
-      : app.platform === "ios"
-        ? (app.storeUrls?.ios ?? app.url)
-        : app.platform === "android"
-          ? (app.storeUrls?.android ?? app.url)
-          : (app.storeUrls?.ios ?? app.storeUrls?.android ?? app.url);
+  // Single source of truth for the Try action (platform × embeddable).
+  const tryTargets = getTryTargets(app);
+  const primaryTarget = tryTargets[0];
 
   const ytId = !app.demoVideoUrl && app.youtubeUrl ? youtubeVideoId(app.youtubeUrl) : null;
   const isSlideshow =
@@ -90,18 +90,33 @@ export function AppCard({
     <section className="relative h-dvh w-full overflow-hidden bg-black">
       {/* ---- media ---- */}
       {app.demoVideoUrl ? (
-        <video
-          ref={videoRef}
-          src={app.demoVideoUrl}
-          poster={app.thumbnailUrl ?? undefined}
-          className="absolute inset-0 h-full w-full object-contain"
-          muted={muted}
-          loop
-          playsInline
-          preload={active ? "auto" : "none"}
-          onTimeUpdate={onTimeUpdate}
-          onClick={() => setMuted((m) => !m)}
-        />
+        near ? (
+          <video
+            ref={videoRef}
+            src={app.demoVideoUrl}
+            poster={app.thumbnailUrl ?? undefined}
+            className="absolute inset-0 h-full w-full object-contain"
+            muted={muted}
+            loop
+            playsInline
+            preload={active ? "auto" : "none"}
+            onTimeUpdate={onTimeUpdate}
+            onClick={() => setMuted((m) => !m)}
+          />
+        ) : app.thumbnailUrl ? (
+          // Far-away card: poster only — releases the video decoder/buffers.
+          // eslint-disable-next-line @next/next/no-img-element -- R2/maker media
+          <img
+            src={app.thumbnailUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-contain"
+            loading="lazy"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+            <Play className="h-12 w-12 opacity-40" />
+          </div>
+        )
       ) : ytId && active ? (
         // YouTube fallback: may show ads/branding — R2 mp4 is the preferred path.
         <iframe
@@ -137,34 +152,19 @@ export function AppCard({
       {/* ---- center Try CTA: subtle while watching, solid once the demo
            has been fully seen (the decision moment) ---- */}
       <div className="pointer-events-none absolute inset-x-0 top-[58%] flex justify-center">
-        {app.platform === "web" ? (
-          <Link
-            href={tryHref}
-            className={cn(
-              "pointer-events-auto inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-semibold backdrop-blur-md transition-all duration-500",
-              ctaBoost
-                ? "scale-105 bg-white text-black shadow-lg shadow-black/30"
-                : "border border-white/40 bg-white/15 text-white"
-            )}
-          >
-            Try it now →
-          </Link>
-        ) : (
-          <a
-            href={tryHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => track(app.id, "try_click")}
-            className={cn(
-              "pointer-events-auto inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-6 text-sm font-semibold backdrop-blur-md transition-all duration-500",
-              ctaBoost
-                ? "scale-105 bg-white text-black shadow-lg shadow-black/30"
-                : "border border-white/40 bg-white/15 text-white"
-            )}
-          >
-            <ExternalLink className="h-4 w-4" /> Get the app
-          </a>
-        )}
+        <TryLink
+          appId={app.id}
+          target={primaryTarget}
+          className={cn(
+            "pointer-events-auto inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-6 text-sm font-semibold backdrop-blur-md transition-all duration-500",
+            ctaBoost
+              ? "scale-105 bg-white text-black shadow-lg shadow-black/30"
+              : "border border-white/40 bg-white/15 text-white"
+          )}
+        >
+          {primaryTarget.external && <ExternalLink className="h-4 w-4" />}
+          {app.platform === "web" ? "Try it now →" : primaryTarget.label}
+        </TryLink>
       </div>
 
       {/* ---- bottom gradient + info ---- */}
@@ -188,66 +188,19 @@ export function AppCard({
           {app.feedbackCount > 0 && <> · {app.feedbackCount} feedback</>}
         </p>
 
-        {app.platform === "web" ? (
-          <Link
-            href={`/try/${app.id}`}
-            className="mt-4 inline-flex h-12 w-full max-w-xs items-center justify-center rounded-xl bg-foreground text-base font-semibold text-background transition hover:bg-foreground/90"
-          >
-            Try
-          </Link>
-        ) : app.platform === "cross_platform" ? (
-          <div className="mt-4 flex w-full max-w-xs gap-2">
-            {app.storeUrls?.ios && (
-              <a
-                href={app.storeUrls.ios}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => track(app.id, "try_click")}
-                className="inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background transition hover:bg-foreground/90"
-              >
-                <ExternalLink className="h-4 w-4" /> App Store
-              </a>
-            )}
-            {app.storeUrls?.android && (
-              <a
-                href={app.storeUrls.android}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => track(app.id, "try_click")}
-                className="inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background transition hover:bg-foreground/90"
-              >
-                <ExternalLink className="h-4 w-4" /> Play
-              </a>
-            )}
-            {!app.storeUrls?.ios && !app.storeUrls?.android && (
-              <a
-                href={app.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => track(app.id, "try_click")}
-                className="inline-flex h-12 w-full items-center justify-center gap-1.5 rounded-xl bg-foreground text-base font-semibold text-background transition hover:bg-foreground/90"
-              >
-                <ExternalLink className="h-4 w-4" /> Get the app
-              </a>
-            )}
-          </div>
-        ) : (
-          // ios or android — single store link
-          <a
-            href={
-              app.platform === "ios"
-                ? (app.storeUrls?.ios ?? app.url)
-                : (app.storeUrls?.android ?? app.url)
-            }
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => track(app.id, "try_click")}
-            className="mt-4 inline-flex h-12 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-foreground text-base font-semibold text-background transition hover:bg-foreground/90"
-          >
-            <ExternalLink className="h-4 w-4" />
-            {app.platform === "ios" ? "Get on App Store" : "Get on Google Play"}
-          </a>
-        )}
+        <div className="mt-4 flex w-full max-w-xs gap-2">
+          {tryTargets.map((target) => (
+            <TryLink
+              key={target.href}
+              appId={app.id}
+              target={target}
+              className="inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background transition hover:bg-foreground/90"
+            >
+              {target.external && <ExternalLink className="h-4 w-4" />}
+              {app.platform === "web" ? "Try" : target.label}
+            </TryLink>
+          ))}
+        </div>
       </div>
 
       {/* ---- right action rail (TikTok-minimal: bare icons, no chrome) ---- */}
