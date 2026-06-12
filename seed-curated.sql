@@ -1,5 +1,5 @@
 -- ===========================================================================
--- Glim curated seed — 6 apps + 1 official post each.
+-- Glim curated seed — 8 apps + 1 official post each.
 -- Safe to re-run: every statement is INSERT OR IGNORE.
 --
 -- Conventions:
@@ -233,4 +233,78 @@ INSERT OR IGNORE INTO posts (
   '/api/media/curated/birdseyes/01.png',
   'A private knowledge graph of everything you read, watch, and explore — see your mind from above.',
   0, 0, 1781216849000
+);
+
+-- ---------------------------------------------------------------------------
+-- 7. Taste — web restaurant/recipe journal + social (Maddy Osman)  · 2026-06-12
+--    Verified in-browser: full public landing renders, no broken features.
+-- ---------------------------------------------------------------------------
+INSERT OR IGNORE INTO apps (
+  id, slug, name, tagline, description, url,
+  demo_video_url, youtube_url, thumbnail_url, category, tags,
+  maker_id, maker_name, maker_links,
+  guest_mode_available, no_login_trial_available, embeddable,
+  platform, store_urls, status, icon_url,
+  follower_count, save_count, created_at, updated_at
+) VALUES (
+  'curated-taste', 'taste', 'Taste',
+  'Catalog the restaurant meals and recipes you love — then share your taste with your people.',
+  'Taste is a tasting journal: log restaurant meals and homemade recipes, rate them, tag cuisines, and share favorites and dietary preferences with friends and family. Maddy Osman — a non-coder — vibe-coded it with Lovable and Cursor, and it grew a real social discovery layer (follows, bookmarks, community feed) on top of a simple personal logger.',
+  'https://taste-6fd78.web.app',
+  NULL, NULL, '/api/media/curated/taste/01.png', 'Other',
+  '["food","recipes","social"]',
+  'glim-system', 'Maddy Osman', '{"x":"https://x.com/MaddyOsman"}',
+  0, 0, 0,
+  'web', NULL,
+  'unclaimed', NULL,
+  0, 0, 1781290000000, 1781290000000
+);
+
+INSERT OR IGNORE INTO posts (
+  id, app_id, author_id, type, status, media_type,
+  video_url, image_urls, thumbnail_url, caption,
+  like_count, comment_count, created_at
+) VALUES (
+  'post-curated-taste', 'curated-taste', 'glim-system', 'official', 'published', 'images',
+  NULL, '["/api/media/curated/taste/01.png","/api/media/curated/taste/02.png"]',
+  '/api/media/curated/taste/01.png',
+  'Catalog the restaurant meals and recipes you love — then share your taste with your people.',
+  0, 0, 1781290060000
+);
+
+-- ---------------------------------------------------------------------------
+-- 8. Dreambase — web AI-native Supabase analytics (Kyle Ledbetter)  · 2026-06-12
+--    Verified in-browser: polished landing + live product dashboard, works.
+-- ---------------------------------------------------------------------------
+INSERT OR IGNORE INTO apps (
+  id, slug, name, tagline, description, url,
+  demo_video_url, youtube_url, thumbnail_url, category, tags,
+  maker_id, maker_name, maker_links,
+  guest_mode_available, no_login_trial_available, embeddable,
+  platform, store_urls, status, icon_url,
+  follower_count, save_count, created_at, updated_at
+) VALUES (
+  'curated-dreambase', 'dreambase', 'Dreambase',
+  'AI-native analytics for Supabase — connect your database, get production dashboards in 90 seconds.',
+  'Dreambase points an AI analytics layer straight at your Supabase database — no data warehouse, no data team, just production dashboards from day zero. Prototyped with Lovable and v0, refined in Cursor, it is the rare vibe-coded build that turned into a funded SaaS ($3.7M seed) and a Supabase marketplace partner.',
+  'https://dreambase.com',
+  NULL, NULL, '/api/media/curated/dreambase/01.png', 'DevTools',
+  '["analytics","supabase","dashboards"]',
+  'glim-system', 'Kyle Ledbetter', '{"x":"https://x.com/kyleledbetter","website":"https://dreambase.com"}',
+  0, 0, 0,
+  'web', NULL,
+  'unclaimed', NULL,
+  0, 0, 1781295000000, 1781295000000
+);
+
+INSERT OR IGNORE INTO posts (
+  id, app_id, author_id, type, status, media_type,
+  video_url, image_urls, thumbnail_url, caption,
+  like_count, comment_count, created_at
+) VALUES (
+  'post-curated-dreambase', 'curated-dreambase', 'glim-system', 'official', 'published', 'images',
+  NULL, '["/api/media/curated/dreambase/01.png","/api/media/curated/dreambase/02.png"]',
+  '/api/media/curated/dreambase/01.png',
+  'AI-native analytics for Supabase — connect your database, get production dashboards in 90 seconds.',
+  0, 0, 1781295060000
 );
