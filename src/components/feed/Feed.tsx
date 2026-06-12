@@ -36,6 +36,8 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
   const [category, setCategory] = useState<string | null>(null);
   const [liked, setLiked] = useState<Set<string>>(new Set());
   const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [followedApps, setFollowedApps] = useState<Set<string>>(new Set());
+  const [followingItems, setFollowingItems] = useState<FeedItem[] | null>(null);
   const [feedbackApp, setFeedbackApp] = useState<{ id: string; name: string } | null>(null);
   const [showNudge, setShowNudge] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -47,20 +49,61 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
     () => [...new Set(apps.map((a) => a.category))].sort(),
     [apps]
   );
-  // 'categories' tab filters the loaded feed client-side (v1); the
-  // 'following' tab gets a real server feed in Phase 4.
+  // 'categories' filters the loaded feed client-side (v1); 'following'
+  // renders the server feed fetched on tab switch.
   const visibleApps = useMemo(() => {
     if (tab === "categories" && category) {
       return apps.filter((a) => a.category === category);
     }
-    if (tab === "following") return [];
+    if (tab === "following") return followingItems ?? [];
     return apps;
-  }, [apps, tab, category]);
+  }, [apps, tab, category, followingItems]);
 
   useEffect(() => {
     setLiked(loadSet(LIKES_KEY));
     setSaved(loadSet(SAVES_KEY));
   }, []);
+
+  // Hydrate follow-button state once the session is known.
+  useEffect(() => {
+    if (!session?.user) return;
+    let cancelled = false;
+    fetch("/api/follows")
+      .then(async (r): Promise<{ follows: { targetType: string; targetId: string }[] }> =>
+        r.ok ? ((await r.json()) as { follows: { targetType: string; targetId: string }[] }) : { follows: [] }
+      )
+      .then((data) => {
+        if (cancelled) return;
+        setFollowedApps(
+          new Set(
+            data.follows.filter((f) => f.targetType === "app").map((f) => f.targetId)
+          )
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user]);
+
+  // Fetch the following feed when the tab opens (and after follow changes).
+  useEffect(() => {
+    if (tab !== "following" || !session?.user) return;
+    let cancelled = false;
+    fetch("/api/feed?type=following")
+      .then(async (r): Promise<{ items: FeedItem[] }> =>
+        r.ok ? ((await r.json()) as { items: FeedItem[] }) : { items: [] }
+      )
+      .then((data) => {
+        if (!cancelled) setFollowingItems(data.items);
+      })
+      .catch(() => {
+        if (!cancelled) setFollowingItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, session?.user, followedApps]);
 
   // Returning from Try view (?feedback=appId) → open the feedback modal immediately.
   useEffect(() => {
@@ -173,6 +216,40 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
     });
   };
 
+  const handleFollow = async (app: FeedItem) => {
+    if (!session?.user) {
+      setShowNudge(true);
+      return;
+    }
+    // Optimistic toggle; revert on failure.
+    const wasFollowing = followedApps.has(app.id);
+    setFollowedApps((prev) => {
+      const next = new Set(prev);
+      if (wasFollowing) next.delete(app.id);
+      else next.add(app.id);
+      return next;
+    });
+    try {
+      const res = await fetch("/api/follows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetType: "app", targetId: app.id }),
+      });
+      if (!res.ok) throw new Error();
+      if (!wasFollowing) {
+        setToast(`Following ${app.name}`);
+        setTimeout(() => setToast(null), 1800);
+      }
+    } catch {
+      setFollowedApps((prev) => {
+        const next = new Set(prev);
+        if (wasFollowing) next.add(app.id);
+        else next.delete(app.id);
+        return next;
+      });
+    }
+  };
+
   const handleShare = async (app: FeedItem) => {
     const url = `${window.location.origin}/app/${app.slug}`;
     track(app.id, "share");
@@ -246,8 +323,10 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
             active={i === activeIndex}
             liked={liked.has(app.id)}
             saved={saved.has(app.id)}
+            followed={followedApps.has(app.id)}
             onLike={() => handleLike(app)}
             onSave={() => handleSave(app)}
+            onFollow={() => handleFollow(app)}
             onShare={() => handleShare(app)}
             onFeedback={() => setFeedbackApp({ id: app.id, name: app.name })}
             onVideoComplete={() => completedRef.current.add(app.id)}
@@ -255,12 +334,18 @@ export function Feed({ apps }: { apps: FeedItem[] }) {
         ))}
         {visibleApps.length === 0 && tab === "following" && (
           <div className="flex h-dvh flex-col items-center justify-center gap-3 px-8 text-center">
-            <p className="text-lg font-semibold">Nothing here yet.</p>
-            <p className="text-sm text-muted-foreground">
-              {session?.user
-                ? "Follow apps and makers to see their updates here."
-                : "Sign in and follow apps to see their updates here."}
+            <p className="text-lg font-semibold">
+              {session?.user && followingItems === null
+                ? "Loading…"
+                : "Nothing here yet."}
             </p>
+            {!(session?.user && followingItems === null) && (
+              <p className="text-sm text-muted-foreground">
+                {session?.user
+                  ? "Follow apps with the + button on a card to see their updates here."
+                  : "Sign in and follow apps to see their updates here."}
+              </p>
+            )}
             {!session?.user && (
               <div className="mt-2 w-full max-w-xs">
                 <GoogleSignIn />

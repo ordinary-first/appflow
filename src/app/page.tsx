@@ -22,6 +22,7 @@ export default async function HomePage() {
       youtubeUrl: app.youtubeUrl,
       imageUrls: post.imageUrls ?? null,
       thumbnailUrl: post.thumbnailUrl ?? app.thumbnailUrl,
+      iconUrl: app.iconUrl,
       makerName: app.makerName,
       embeddable: app.embeddable,
       // Interim display source: interactions stats (the client still writes

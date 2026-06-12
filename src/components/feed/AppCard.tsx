@@ -2,23 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Heart, Bookmark, Share2, MessageSquare, Play } from "lucide-react";
+import { Heart, Bookmark, Share2, MessageSquare, Play, Plus, Check } from "lucide-react";
 import { track } from "@/lib/track";
 import { youtubeVideoId, cn } from "@/lib/utils";
 import type { FeedItem } from "@/lib/types";
 
 /**
  * One full-viewport feed card: looping 15s demo (R2 mp4 preferred,
- * YouTube embed fallback), app info overlay, Try CTA, action rail.
- * Only the active card plays/loads media.
+ * YouTube embed fallback) or screenshot slideshow, app info overlay,
+ * Try CTA, action rail. Only the active card plays/loads media.
  */
 export function AppCard({
   app,
   active,
   liked,
   saved,
+  followed,
   onLike,
   onSave,
+  onFollow,
   onShare,
   onFeedback,
   onVideoComplete,
@@ -27,8 +29,10 @@ export function AppCard({
   active: boolean;
   liked: boolean;
   saved: boolean;
+  followed: boolean;
   onLike: () => void;
   onSave: () => void;
+  onFollow: () => void;
   onShare: () => void;
   onFeedback: () => void;
   onVideoComplete: () => void;
@@ -138,6 +142,41 @@ export function AppCard({
 
       {/* ---- right action rail ---- */}
       <div className="absolute bottom-36 right-3 flex flex-col items-center gap-5">
+        {/* App avatar + follow toggle (TikTok-style: avatar with a + badge) */}
+        <div className="relative mb-1">
+          <Link
+            href={`/app/${app.slug}`}
+            aria-label={`${app.name} page`}
+            className="block h-11 w-11 overflow-hidden rounded-full border-2 border-white/80 bg-muted"
+          >
+            {app.iconUrl || app.thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- R2/maker media
+              <img
+                src={app.iconUrl ?? app.thumbnailUrl ?? ""}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-sm font-bold">
+                {app.name[0]?.toUpperCase()}
+              </span>
+            )}
+          </Link>
+          <button
+            onClick={onFollow}
+            aria-label={followed ? "Unfollow" : "Follow"}
+            className={cn(
+              "absolute -bottom-2 left-1/2 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full transition cursor-pointer",
+              followed ? "bg-muted text-foreground" : "bg-red-500 text-white"
+            )}
+          >
+            {followed ? (
+              <Check className="h-3 w-3" strokeWidth={3} />
+            ) : (
+              <Plus className="h-3 w-3" strokeWidth={3} />
+            )}
+          </button>
+        </div>
         <RailButton
           label={String(app.likes + (liked ? 1 : 0))}
           onClick={onLike}

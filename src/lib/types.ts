@@ -16,6 +16,8 @@ export type FeedItem = {
   /** Screenshot slideshow (mediaType 'images'): 2–5 R2/external URLs. */
   imageUrls: string[] | null;
   thumbnailUrl: string | null;
+  /** App logo for the rail avatar; falls back to thumbnail, then initial. */
+  iconUrl: string | null;
   makerName: string;
   embeddable: boolean;
   likes: number;
