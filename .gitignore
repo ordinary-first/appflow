@@ -7,10 +7,11 @@ node_modules/
 .wrangler/
 out/
 
-# env & secrets
-.env
-.env.local
+# env & secrets — wildcard catches any .env.* file with credentials
+.env*
+!.env.example
 .dev.vars
+.dev.vars.*
 
 # misc
 .DS_Store
