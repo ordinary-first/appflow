@@ -2,6 +2,12 @@
 
 > CEO 리뷰(2026-06-13, `~/.gstack/projects/ordinary-first-appflow/ceo-plans/2026-06-13-platform-stabilization-growth.md`)에서 연기된 항목 + 기존 HANDOFF §9 잔여분.
 
+## 즉시
+
+- [ ] **디자인 리뷰 (`/gstack-design-review`)** — 검색, 트렌딩, 대시보드 2.0 추이 바(`TrendBars`), 배지 임베드 프리뷰(`BadgeEmbed`), 피드백→리뷰 모달. 코드만 검증됐고 실제 화면 폴리시 미확인. Effort: S.
+- [ ] **아웃리치 DM 시작** — `scripts/twitter-outreach.mjs` 활용해 unclaimed 30개 앱 메이커에게 `?utm_source=dm-x` 링크 전송. 검색·클레임 랜딩·UTM 측정 모두 준비 완료. 첫 4주 목표: 클레임 3건.
+- [ ] **피드 UI 이슈** — A) 브라우저 기본 영상 컨트롤 겹침 억제 + 뮤트 버튼 명시 B) 하단 Try 버튼 중복 제거, 텍스트 하단 이동 C) 스와이프 시 다음 영상 프리로드(`preload="auto"`) 적용.
+
 ## P2 — 다음 스프린트 후보
 
 - [ ] **주간 인앱 다이제스트 (E6b)** — 팔로워·저장 활동 있는 메이커에게 주 1회 인앱 알림 ("이번 주 BirdsEyes: Try 23, 저장 7"). `app_daily_stats` 인프라(E2) 안정화 후. 이메일 발송은 스팸 리스크 원칙상 별도 opt-in 결정 필요. Effort: M→S (CC).

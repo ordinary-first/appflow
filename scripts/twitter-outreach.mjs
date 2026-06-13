@@ -90,8 +90,11 @@ function isNoise(text) {
   return NOISE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
+// utm_source flows into claim_requests.utm_source so we can attribute claims
+// back to this channel from the dashboard.
+const GLIM_URL = 'https://glim.ordinaryindividuality.workers.dev?utm_source=tw-reply';
 const REPLY_TEMPLATE = () =>
-  `This is exactly the kind of app Glim is built for — a TikTok-style feed where vibe-coders can get their apps in front of real users and get feedback fast. Worth listing it here → https://glim.ordinaryindividuality.workers.dev`;
+  `This is exactly the kind of app Glim is built for — a TikTok-style feed where vibe-coders can get their apps in front of real users and get feedback fast. Worth listing it here → ${GLIM_URL}`;
 
 const DRY_RUN = process.argv[2] !== '--send'; // 기본은 dry-run
 
