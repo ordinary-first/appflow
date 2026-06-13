@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Heart, Bookmark, Share2, MessageSquare, Play, Plus, Check, ExternalLink } from "lucide-react";
+import { Heart, Bookmark, Share2, MessageSquare, Play, Plus, Check, ExternalLink, Volume2, VolumeX } from "lucide-react";
 import { track } from "@/lib/track";
 import { youtubeVideoId, cn } from "@/lib/utils";
 import { getTryTargets } from "@/lib/try-target";
@@ -44,6 +44,7 @@ export function AppCard({
   onVideoComplete: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const startedRef = useRef(false);
   const completedRef = useRef(false);
   const [muted, setMuted] = useState(true);
@@ -86,6 +87,42 @@ export function AppCard({
   const isSlideshow =
     app.mediaType === "images" && (app.imageUrls?.length ?? 0) > 0;
 
+  // YouTube control via the iframe postMessage API (enablejsapi=1). The iframe
+  // mounts for *near* cards so the next/prev player is already initialised — on
+  // activation we just send playVideo, so swiping plays instantly instead of
+  // waiting for a fresh iframe to boot. Non-active near players stay paused.
+  const postYT = (func: string) =>
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func, args: [] }),
+      "*"
+    );
+  useEffect(() => {
+    if (!ytId) return;
+    if (!active) {
+      postYT("pauseVideo");
+      return;
+    }
+    if (!startedRef.current) {
+      startedRef.current = true;
+      track(app.id, "video_start", undefined, { once: true });
+    }
+    // The player may not be "ready" when the effect first fires (the iframe API
+    // ignores commands until then), so a single playVideo can be dropped —
+    // leaving YouTube showing its paused poster + title chrome. Retry a few
+    // times over ~2s until it takes; clears itself once the card deactivates.
+    let n = 0;
+    postYT("playVideo");
+    const t = setInterval(() => {
+      postYT("playVideo");
+      if (++n >= 6) clearInterval(t);
+    }, 350);
+    return () => clearInterval(t);
+  }, [active, ytId, app.id]);
+  useEffect(() => {
+    if (!ytId) return;
+    postYT(muted ? "mute" : "unMute");
+  }, [muted, ytId]);
+
   return (
     <section className="relative h-dvh w-full overflow-hidden bg-black">
       {/* ---- media ---- */}
@@ -99,7 +136,11 @@ export function AppCard({
             muted={muted}
             loop
             playsInline
-            preload={active ? "auto" : "none"}
+            disablePictureInPicture
+            controlsList="nodownload nofullscreen noremoteplayback"
+            // near cards (active ± 1) buffer ahead, so a swipe plays instantly
+            // instead of starting the network fetch on activation.
+            preload="auto"
             onTimeUpdate={onTimeUpdate}
             onClick={() => setMuted((m) => !m)}
           />
@@ -117,13 +158,21 @@ export function AppCard({
             <Play className="h-12 w-12 opacity-40" />
           </div>
         )
-      ) : ytId && active ? (
-        // YouTube fallback: may show ads/branding — R2 mp4 is the preferred path.
+      ) : ytId && near ? (
+        // YouTube fallback (R2 mp4 is preferred). controls=0 hides YouTube's
+        // own player chrome (volume/CC/settings) that used to overlap our
+        // header; playback is driven by postMessage (see effects above), so the
+        // src stays stable and the player isn't torn down on every activation.
         <iframe
-          className="absolute inset-0 h-full w-full"
-          src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${ytId}&rel=0&modestbranding=1`}
+          ref={iframeRef}
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          src={`https://www.youtube.com/embed/${ytId}?enablejsapi=1&autoplay=1&controls=0&mute=1&playsinline=1&loop=1&playlist=${ytId}&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0`}
           allow="autoplay; encrypted-media; picture-in-picture"
           title={app.name}
+          onLoad={() => {
+            postYT(active ? "playVideo" : "pauseVideo");
+            postYT(muted ? "mute" : "unMute");
+          }}
         />
       ) : isSlideshow ? (
         <ImageSlideshow
@@ -146,17 +195,32 @@ export function AppCard({
         </div>
       )}
 
-      {/* ---- top gradient: keeps the header/tabs legible on bright media ---- */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/60 to-transparent" />
+      {/* ---- top gradient: keeps the header/tabs legible on bright media, and
+           opaque-at-the-top so a YouTube embed's title/channel overlay (shown
+           while it buffers, before playback hides it) stays masked. ---- */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black via-black/70 to-transparent" />
 
-      {/* ---- center Try CTA: subtle while watching, solid once the demo
-           has been fully seen (the decision moment) ---- */}
-      <div className="pointer-events-none absolute inset-x-0 top-[58%] flex justify-center">
+      {/* ---- mute toggle: left side, clear of header chrome and the right
+           action rail. Only shown for cards that actually have audio. ---- */}
+      {(app.demoVideoUrl || ytId) && (
+        <button
+          onClick={() => setMuted((m) => !m)}
+          aria-label={muted ? "Unmute" : "Mute"}
+          className="absolute left-3 top-[72px] z-30 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/60 cursor-pointer"
+        >
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
+      )}
+
+      {/* ---- Try CTA: subtle translucent pill low in the frame so it doesn't
+           block the demo; it turns solid once the demo has been fully seen
+           (the decision moment). ---- */}
+      <div className="pointer-events-none absolute inset-x-0 top-[64%] flex justify-center">
         <TryLink
           appId={app.id}
           target={primaryTarget}
           className={cn(
-            "pointer-events-auto inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-6 text-sm font-semibold backdrop-blur-md transition-all duration-500",
+            "pointer-events-auto inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-5 text-sm font-semibold backdrop-blur-md transition-all duration-500",
             ctaBoost
               ? "scale-105 bg-white text-black shadow-lg shadow-black/30"
               : "border border-white/40 bg-white/15 text-white"
@@ -169,7 +233,7 @@ export function AppCard({
 
       {/* ---- bottom gradient + info ---- */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-96 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
-      {/* pb-20 keeps the Try button clear of the fixed bottom nav */}
+      {/* pb-20 keeps the info text clear of the fixed bottom nav */}
       <div className="absolute bottom-0 left-0 right-16 p-5 pb-20">
         <span className="inline-block rounded-full border border-white/15 bg-black/50 px-2.5 py-0.5 text-xs text-white/80">
           {app.category}
@@ -187,20 +251,6 @@ export function AppCard({
           {app.tryCount > 0 && <> · {app.tryCount} tried</>}
           {app.feedbackCount > 0 && <> · {app.feedbackCount} feedback</>}
         </p>
-
-        <div className="mt-4 flex w-full max-w-xs gap-2">
-          {tryTargets.map((target) => (
-            <TryLink
-              key={target.href}
-              appId={app.id}
-              target={target}
-              className="inline-flex h-12 flex-1 items-center justify-center gap-1.5 rounded-xl bg-foreground text-sm font-semibold text-background transition hover:bg-foreground/90"
-            >
-              {target.external && <ExternalLink className="h-4 w-4" />}
-              {app.platform === "web" ? "Try" : target.label}
-            </TryLink>
-          ))}
-        </div>
       </div>
 
       {/* ---- right action rail (TikTok-minimal: bare icons, no chrome) ---- */}
