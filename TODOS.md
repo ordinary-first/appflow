@@ -4,9 +4,13 @@
 
 ## 즉시
 
-- [ ] **디자인 리뷰 (`/gstack-design-review`)** — 검색, 트렌딩, 대시보드 2.0 추이 바(`TrendBars`), 배지 임베드 프리뷰(`BadgeEmbed`), 피드백→리뷰 모달. 코드만 검증됐고 실제 화면 폴리시 미확인. Effort: S.
-- [ ] **아웃리치 DM 시작** — `scripts/twitter-outreach.mjs` 활용해 unclaimed 30개 앱 메이커에게 `?utm_source=dm-x` 링크 전송. 검색·클레임 랜딩·UTM 측정 모두 준비 완료. 첫 4주 목표: 클레임 3건.
-- [ ] **피드 UI 이슈** — A) 브라우저 기본 영상 컨트롤 겹침 억제 + 뮤트 버튼 명시 B) 하단 Try 버튼 중복 제거, 텍스트 하단 이동 C) 스와이프 시 다음 영상 프리로드(`preload="auto"`) 적용.
+- [x] **피드 UI 이슈** — A) YouTube 임베드 `controls=0` + postMessage 재생 제어로 컨트롤 겹침 제거, 상단 그라데이션 마스킹, 뮤트 버튼 추가 B) 하단 Try 버튼 중복 제거, 중앙 단일 반투명 CTA 하단 이동 C) `near` 카드 프리로드(mp4 `preload="auto"` + YouTube iframe near 마운트). (커밋 `fc307ee`)
+- [x] **디자인 리뷰** — 검색/트렌딩/대시보드/배지/피드백 모달 Codex 소스 감사 + Claude Preview 시각 점검. 수정: 검색 로딩 상태, 배지 복사 버튼 터치 타깃·실패 피드백, 피드백 입력 aria-label, 트렌딩 빈 상태 카피, 검색 제목. (커밋 `8235cd4`~`457bc0b`)
+- [ ] **아웃리치 (마케팅, 별도 세션)** — `scripts/twitter-outreach.mjs`는 DM이 아니라 **공개 리플**이고 대상이 광범위(off-target 포함). UTM(`utm_source=tw-reply`)은 추가 완료. unclaimed 앱은 `maker_id=glim-system`이라 메이커 핸들 없음 → "30명 직접 DM"은 핸들 확보 또는 다른 채널 필요. 마케팅 세션에서 진행.
+
+### 디자인 리뷰 보류 항목 (P3, 판단/리스크 큼)
+- [ ] **대시보드 통계 위계** — 8개 stat이 균등 가중. Try 전환(핵심 지표)에 시각 위계 부여 검토. 메이커 데이터 표시 변경이라 신중히.
+- [ ] **균일 `rounded-xl/2xl` 라디우스** — AI-slop 신호. 카드/입력/버튼 라디우스 위계화 검토 (광범위·미관, 저우선).
 
 ## P2 — 다음 스프린트 후보
 
