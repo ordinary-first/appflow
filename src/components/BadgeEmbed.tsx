@@ -10,6 +10,7 @@ import { Copy, Check } from "lucide-react";
  */
 export function BadgeEmbed({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
   const badgeUrl = `/api/badge/${slug}`;
 
   const copy = async () => {
@@ -17,10 +18,14 @@ export function BadgeEmbed({ slug }: { slug: string }) {
     const snippet = `<a href="${origin}/app/${slug}?utm_source=badge"><img src="${origin}${badgeUrl}" alt="Live on Glim" height="28" /></a>`;
     try {
       await navigator.clipboard.writeText(snippet);
+      setFailed(false);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* clipboard unavailable */
+      // Clipboard blocked (insecure origin / permissions) — tell the maker
+      // instead of leaving the tap dead, so they can select the code by hand.
+      setFailed(true);
+      setTimeout(() => setFailed(false), 2600);
     }
   };
 
@@ -33,10 +38,10 @@ export function BadgeEmbed({ slug }: { slug: string }) {
       <img src={badgeUrl} alt="Live on Glim badge preview" className="h-7" />
       <button
         onClick={copy}
-        className="inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-3 text-xs text-muted-foreground transition hover:text-foreground cursor-pointer"
+        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3.5 text-xs text-muted-foreground transition hover:text-foreground cursor-pointer"
       >
-        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-        {copied ? "Copied" : "Copy embed code"}
+        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? "Copied" : failed ? "Press Ctrl+C to copy" : "Copy embed code"}
       </button>
     </div>
   );
