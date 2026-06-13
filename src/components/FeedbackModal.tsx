@@ -170,6 +170,7 @@ export function FeedbackModal({
       <Input
         className="mt-4"
         placeholder="Optional: Tell the maker one thing."
+        aria-label="Feedback comment for the maker"
         value={comment}
         maxLength={280}
         onChange={(e) => setComment(e.target.value)}
