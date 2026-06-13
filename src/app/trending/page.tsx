@@ -35,9 +35,9 @@ export default async function TrendingPage() {
 
       {apps.length === 0 ? (
         <div className="mt-16 text-center">
-          <p className="text-base font-medium">Counting this week&apos;s tries…</p>
+          <p className="text-base font-medium">No apps on the board yet this week.</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Check back soon — or go try some apps and put them on the board.
+            Try a few apps and you&apos;ll put them on the board — one person counts once.
           </p>
           <Link
             href="/"
