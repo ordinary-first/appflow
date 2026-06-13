@@ -18,7 +18,7 @@ export default function SearchPage() {
       >
         <ArrowLeft className="h-4 w-4" /> Back to Glim
       </Link>
-      <h1 className="mt-5 text-2xl font-bold">Search</h1>
+      <h1 className="mt-5 text-2xl font-bold">Search apps</h1>
       <SearchClient />
       <BottomNav />
     </main>

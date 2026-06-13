@@ -21,6 +21,7 @@ export function SearchClient() {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<SearchApp[] | null>(null);
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -28,8 +29,13 @@ export function SearchClient() {
     if (!query) {
       setResults(null);
       setError(false);
+      setLoading(false);
       return;
     }
+    // Show the in-flight state the moment a query exists, not just after the
+    // debounce fires — otherwise the field reads blank for ~250ms+latency and
+    // feels broken on the first keystroke.
+    setLoading(true);
     const t = setTimeout(() => {
       abortRef.current?.abort();
       const ctrl = new AbortController();
@@ -41,9 +47,13 @@ export function SearchClient() {
         .then((data) => {
           setResults(data.apps);
           setError(false);
+          setLoading(false);
         })
         .catch((e) => {
-          if (e?.name !== "AbortError") setError(true);
+          if (e?.name !== "AbortError") {
+            setError(true);
+            setLoading(false);
+          }
         });
     }, 250);
     return () => clearTimeout(t);
@@ -67,6 +77,14 @@ export function SearchClient() {
       {error && (
         <p className="mt-4 text-sm text-red-400" role="alert">
           Search failed — please try again.
+        </p>
+      )}
+
+      {/* In-flight: only when we have nothing to show yet, so re-querying with
+          existing results doesn't flicker the whole list to "Searching…". */}
+      {loading && results === null && !error && (
+        <p className="mt-4 text-sm text-muted-foreground" role="status">
+          Searching…
         </p>
       )}
 
